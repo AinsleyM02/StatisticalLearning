@@ -1,0 +1,48 @@
+---
+title: "lecture8_29"
+author: "Ainsley McLaughlin"
+date: "2024-08-29"
+output: html_document
+---
+1. Load the nycflights13 package, which contains airline on-time data for all flights departing
+NYC in 2013. Also includes useful ‘metadata’ on airlines, airports, weather, and planes.
+2. Load the tidyverse package
+3. Using the flights data,
+• find all flights that were less than 1000 miles (distance)
+• Keep only the columns: dep_delay, arr_delay, origin, dest, air_time, and
+distance
+• Add the Z-score for departure delays
+• Convert the departure and arrival delays into hours
+# just did until here
+• Calculate the average flight speed (in mph)
+• order by average flight speed (fastest to slowest)
+• return the first 12 rows
+
+```{r}
+#install.packages("nycflights13")
+#library(nycflights13)
+#library(tidyverse)
+
+data("flights")
+
+flights %>%
+  filter(
+    distance<=1000
+  ) %>%
+  select(
+    dep_delay, arr_delay, origin, dest, air_time, distance
+  ) %>%
+  mutate(
+    dep_delay_z=(dep_delay - mean(dep_delay, na.rm=T))/sd(dep_delay, na.rm=T) # is missing data in dep delays so remove it or the whole new column is filled with na
+  ) %>%
+  mutate(
+    #dep_delay_hr=dep_delay/60, # could do it this way
+    #arr_delay_hr=arr_delay/60,
+    across(ends_with("delay"), \(x) x/60, .names="{.col}_hr") # across with a annonmous lambda function
+    # could also have written fuction(x) x/60
+  )
+
+```
+
+
+
