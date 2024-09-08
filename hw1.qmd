@@ -1,9 +1,8 @@
 ---
 title: "Homework #1: Supervised Learning"
-author: "**Your Name Here**"
+author: "**Ainsley McLaughlin**"
 format: ds6030hw-html
 ---
-
 
 ```{r config}
 #| include: false
@@ -12,8 +11,7 @@ knitr::opts_chunk$set()                 # set global chunk options
 ggplot2::theme_set(ggplot2::theme_bw()) # set ggplot2 theme
 ```
 
-
-# Required R packages and Directories  {.unnumbered .unlisted}
+# Required R packages and Directories {.unnumbered .unlisted}
 
 ```{r packages}
 #| message: false
@@ -21,21 +19,33 @@ ggplot2::theme_set(ggplot2::theme_bw()) # set ggplot2 theme
 library(tidyverse) # functions for data manipulation
 ```
 
-
 # Problem 1: Evaluating a Regression Model
 
 ## a. Data generating functions
+
 Create a set of functions to generate data from the following distributions:
 
+```{=tex}
 \begin{align*}
 X &\sim \mathcal{N}(0, 1) \\
 Y &= -1 + .5X + .2X^2 + \epsilon \\
 \epsilon &\sim \mathcal{N}(0,\, \sigma)
 \end{align*}
-
-
+```
 ::: {.callout-note title="Solution"}
-Add solution here
+```{r}
+X_sim <- function(n) {
+  rnorm(n, mean = 0, sd = 1)
+}
+
+# Function to generate Y given X_sim
+Y_sim <- function(X, stdv) {
+  n <- length(X)  # Get num samps from X
+  epsilon <- rnorm(n, mean = 0, sd = stdv)  # noise term epsilon
+  -1 + 0.5 * X + 0.2 * X^2 + epsilon  # put together
+}
+
+```
 :::
 
 
@@ -43,113 +53,597 @@ Add solution here
 
 Simulate $n=100$ realizations from these distributions using $\sigma=3$. Produce a scatterplot and draw the true regression line $f(x) = E[Y \mid X=x]$.
 
-- Use `set.seed(611)` prior to generating the data.
-
+-   Use `set.seed(611)` prior to generating the data.
 
 ::: {.callout-note title="Solution"}
-Add solution here
-:::
+```{r}
+# previous functions: 
 
+X_sim <- function(n) {
+  rnorm(n, mean = 0, sd = 1)
+}
+
+# Function to generate Y given X_sim
+Y_sim <- function(X, stdv) {
+  n <- length(X)  # Get num samps from X
+  epsilon <- rnorm(n, mean = 0, sd = stdv)  # noise term epsilon
+  -1 + 0.5 * X + 0.2 * X^2 + epsilon  # put together
+}
+#-----------------------
+
+#simulate realizations
+set.seed(611)
+# from x:
+X <- X_sim(100)
+# from y
+Y <- Y_sim(X, 3)
+# make df
+sim_data=data.frame(X=X,Y=Y)
+# ggplot
+library(ggplot2)
+# true reg function:
+true_reg <- function(x) {
+  -1 + 0.5 * x + 0.2 * x^2
+}
+#scatter plot
+ggplot(sim_data, aes(x=X,y=Y)) +
+geom_point()+
+geom_function(fun = true_reg, color="blue")+
+labs(title = "Scatterplot with True Regression Line",
+       x = "X",
+       y = "Y")
+```
+:::
 
 ## c. Fit three models
 
-Fit three polynomial regression models using least squares: linear, quadratic, and cubic. Produce another scatterplot, add the fitted lines and true population line $f(x)$  using different colors, and add a legend that maps the line color to a model.
+Fit three polynomial regression models using least squares: linear, quadratic, and cubic. Produce another scatterplot, add the fitted lines and true population line $f(x)$ using different colors, and add a legend that maps the line color to a model.
 
-- Note: The true model is quadratic, but we are also fitting linear (less complex) and cubic (more complex) models.
+-   Note: The true model is quadratic, but we are also fitting linear (less complex) and cubic (more complex) models.
 
 ::: {.callout-note title="Solution"}
-Add solution here
-:::
+```{r}
+#NOTE THE LEGEND IS INCORRECT
 
+#simulate realizations
+set.seed(611)
+# from x:
+X <- X_sim(100)
+# from y
+Y <- Y_sim(X, 3)
+# make df
+sim_data=data.frame(X=X,Y=Y)
+# ggplot
+library(ggplot2)
+# create the lines:
+
+# true reg function:
+true_reg <- function(x) {
+  -1 + 0.5 * x + 0.2 * x^2}
+lin_model <- lm(Y ~ poly(X, degree = 1), data = sim_data)
+quad_model <- lm(Y ~ poly(X, degree = 2), data = sim_data)
+cub_model <- lm(Y ~ poly(X, degree = 3), data = sim_data)
+
+
+# Create predictions for plotting, add to the df that exists
+sim_data$lin_pred <- predict(lin_model, newdata = sim_data)
+sim_data$quad_pred <- predict(quad_model, newdata = sim_data)
+sim_data$cub_pred <- predict(cub_model, newdata = sim_data)
+
+# Scatter plot with fitted lines and true regression line
+ggplot(sim_data, aes(x = X, y = Y), color=sim_data) +
+  geom_point() +
+  geom_line(aes(y = lin_pred, color="blue")) +
+  geom_line(aes(y = quad_pred, color="green")) +
+  geom_line(aes(y = cub_pred, color="purple")) +
+  geom_function(fun = true_reg, aes(color = "red")) +
+  labs(title = "Scatterplot with Fitted Regression Lines",
+       x = "X",
+       y = "Y")
+
+```
+:::
 
 ## d. Predictive performance
 
 Generate a *test data* set of 10,000 observations from the same distributions. Use `set.seed(612)` prior to generating the test data.
 
-- Calculate the estimated mean squared error (MSE) for each model.
-- Are the results as expected?
+-   Calculate the estimated mean squared error (MSE) for each model.
+-   Are the results as expected?
 
 ::: {.callout-note title="Solution"}
-Add solution here
-:::
+```{r}
+#simulate test data
+set.seed(612)
+# from x:
+X_test <- X_sim(10000)
+# from y
+Y_test <- Y_sim(X, 3)
+# make df
+test_data=data.frame(X=X_test,Y=Y_test)
 
+# models
+lin_model <- lm(Y ~ poly(X, degree = 1), data = sim_data)
+quad_model <- lm(Y ~ poly(X, degree = 2), data = sim_data)
+cub_model <- lm(Y ~ poly(X, degree = 3), data = sim_data)
+
+# predictions on test data
+test_data$lin_pred <- predict(lin_model, newdata = test_data)
+test_data$quad_pred <- predict(quad_model, newdata = test_data)
+test_data$cub_pred <- predict(cub_model, newdata = test_data)
+
+# calculate mse for each model:
+mse_linear <- mean((test_data$Y - test_data$lin_pred)^2)
+mse_quadratic <- mean((test_data$Y - test_data$quad_pred)^2)
+mse_cubic <- mean((test_data$Y - test_data$cub_pred)^2)
+#print them
+mse_linear
+mse_quadratic
+mse_cubic
+
+```
+Are the results as expected:
+Above it was noted that "The true model is quadratic, but we are also fitting linear (less complex) and cubic (more complex) models." Thus, we expect the quadratic model to have the lowest mse with cubic having the next lowest as it is closer to the true fit, although it might overfit. We expect the linear function to have the largest mse as it will underfit the data. This is not the case at all, so this result is very unexpected. 
+
+:::
 
 ## e. Optimal performance
 
 What is the best achievable MSE? That is, what is the MSE if the true $f(x)$ was used to evaluate the test set? How close does the best method come to achieving the optimum?
 
 ::: {.callout-note title="Solution"}
-Add solution here
-:::
+```{r}
+#simulate test data
+set.seed(612)
+# from x:
+X_test <- X_sim(10000)
+# from y
+Y_test <- Y_sim(X, 3)
+# make df
+test_data=data.frame(X=X_test,Y=Y_test)
 
+# true regression function
+true_reg <- function(x) {
+  -1 + 0.5 * x + 0.2 * x^2
+}
+
+# true predictions for the test data
+test_data$true_pred <- true_reg(test_data$X)
+
+# best achievable MSE
+best_mse <- mean((test_data$Y - test_data$true_pred)^2)
+best_mse
+
+diff<-10.37105-9.936763
+diff
+
+```
+The best method is the linear model with mse=10.37105, so the difference is 0.434287 as the best achievable mse is  9.936763 when f(x) is used to evaluate the test set.  
+:::
 
 ## f. Replication
 
 The MSE scores obtained in part *d* came from one realization of training data. Here will we explore how much variation there is in the MSE scores by replicating the simulation many times.
 
-- Re-run parts b. and c. (i.e., generate training data and fit models) 100 times.
-    - Do not generate new testing data
-    - Use `set.seed(613)` prior to running the simulation and do not set the seed in any other places.
-- Calculate the test MSE for all simulations.
-    - Use the same test data from part d. (This question is only about the variability that comes from the *training data*).
-- Create kernel density or histogram plots of the resulting MSE values for each model.
+-   Re-run parts b. and c. (i.e., generate training data and fit models) 100 times.
+    -   Do not generate new testing data
+    -   Use `set.seed(613)` prior to running the simulation and do not set the seed in any other places.
+-   Calculate the test MSE for all simulations.
+    -   Use the same test data from part d. (This question is only about the variability that comes from the *training data*).
+-   Create kernel density or histogram plots of the resulting MSE values for each model.
 
 ::: {.callout-note title="Solution"}
-Add solution here
-:::
+```{r}
+library(tidyverse)
 
+#Define functions for simulation and model evaluation
+X_sim <- function(n) {
+  rnorm(n, mean = 0, sd = 1)
+}
+
+Y_sim <- function(X, stdv) {
+  n <- length(X)  # Get num samps from X
+  epsilon <- rnorm(n, mean = 0, sd = stdv)  # noise term epsilon
+  -1 + 0.5 * X + 0.2 * X^2 + epsilon  # put together
+}
+
+true_reg <- function(x) {
+  -1 + 0.5 * x + 0.2 * x^2
+} 
+
+# evaluate the models
+poly_eval <- function(deg, data_train, data_test) {
+  if (deg == 0) {
+    m <- lm(Y ~ 1, data = data_train)  # intercept only model
+  } else {
+    m <- lm(Y ~ poly(X, degree = deg), data = data_train)  # polynomial
+  }
+  # Calculate test MSE
+  yhat <- predict(m, data_test)  # predictions at test X's
+  mse_test <- mean((data_test$Y - yhat)^2)  # test MSE
+  # Output a data frame of relevant info
+  tibble(degree = deg, mse_test = mse_test)
+}
+
+set.seed(613)
+
+# Generate test data (same for all simulations)
+X_test <- X_sim(10000)
+Y_test <- Y_sim(X_test, 3)
+test_data <- data.frame(X = X_test, Y = Y_test)
+
+# data frame to store MSE's
+results <- data.frame()
+
+#do it 100 times
+for (i in 1:100) {
+  # training data
+  X_train <- X_sim(100)
+  Y_train <- Y_sim(X_train, 3)
+  train_data <- data.frame(X = X_train, Y = Y_train)
+  
+  # fit models, calc MSE
+  lin_mse <- poly_eval(deg = 1, data_train = train_data, data_test = test_data)
+  quad_mse <- poly_eval(deg = 2, data_train = train_data, data_test = test_data)
+  cub_mse <- poly_eval(deg = 3, data_train = train_data, data_test = test_data)
+  
+  # results
+  results <- bind_rows(results, lin_mse, quad_mse, cub_mse)
+}
+
+# kernel density of MSE 
+ggplot(results, aes(x = mse_test, fill = factor(degree))) +
+  geom_density(alpha=0.3)
+
+```
+:::
 
 ## g. Best model
 
 Show a count of how many times each model was the best. That is, out of the 100 simulations, count how many times each model had the lowest MSE.
 
 ::: {.callout-note title="Solution"}
-Add solution here
-:::
+```{r}
+# Define functions for simulation and model evaluation
+X_sim <- function(n) {
+  rnorm(n, mean = 0, sd = 1)
+}
 
+Y_sim <- function(X, stdv) {
+  n <- length(X)  # Get num samps from X
+  epsilon <- rnorm(n, mean = 0, sd = stdv)  # noise term epsilon
+  -1 + 0.5 * X + 0.2 * X^2 + epsilon  # put together
+}
+
+true_reg <- function(x) {
+  -1 + 0.5 * x + 0.2 * x^2
+}
+
+# Function to fit, predict, and evaluate a polynomial regression model
+poly_eval <- function(deg, data_train, data_test) {
+  if (deg == 0) {
+    m <- lm(Y ~ 1, data = data_train)  # intercept only model
+  } else {
+    m <- lm(Y ~ poly(X, degree = deg), data = data_train)  # polynomial
+  }
+  # Calculate test MSE
+  yhat <- predict(m, data_test)  # predictions at test X's
+  mse_test <- mean((data_test$Y - yhat)^2)  # test MSE
+  # Output a data frame of relevant info
+  tibble(degree = deg, mse_test = mse_test)
+}
+
+# Set seed for reproducibility
+set.seed(613)
+
+# Generate test data (same for all simulations)
+X_test <- X_sim(10000)
+Y_test <- Y_sim(X_test, 3)
+test_data <- data.frame(X = X_test, Y = Y_test)
+
+# Initialize a data frame to store MSE results and a vector to count best models
+results <- data.frame()
+best_model_count <- tibble(degree = c(1, 2, 3), count = 0)
+
+# Run the simulation 100 times
+for (i in 1:100) {
+  # Generate training data
+  X_train <- X_sim(100)
+  Y_train <- Y_sim(X_train, 3)
+  train_data <- data.frame(X = X_train, Y = Y_train)
+  
+  # Fit models and calculate MSE
+  lin_mse <- poly_eval(deg = 1, data_train = train_data, data_test = test_data)
+  quad_mse <- poly_eval(deg = 2, data_train = train_data, data_test = test_data)
+  cub_mse <- poly_eval(deg = 3, data_train = train_data, data_test = test_data)
+  
+  # Combine results
+  simulation_results <- bind_rows(lin_mse, quad_mse, cub_mse)
+  results <- bind_rows(results, simulation_results)
+  
+  # Identify the best model in this simulation
+  best_model <- simulation_results %>%
+    filter(mse_test == min(mse_test)) %>%
+    pull(degree)
+  
+  # Update the count of best models
+  best_model_count <- best_model_count %>%
+    mutate(count = ifelse(degree %in% best_model, count + 1, count))
+}
+
+# Print the count of how many times each model was the best
+best_model_count
+
+```
+:::
 
 ## h. Function to implement simulation
 
-Write a function that implements the simulation in part *f*. The function should have arguments for i) the size of the training data $n$, ii) the standard deviation of the random error $\sigma$, and iii) the test data.  Use the same `set.seed(613)`. 
+Write a function that implements the simulation in part *f*. The function should have arguments for i) the size of the training data $n$, ii) the standard deviation of the random error $\sigma$, and iii) the test data. Use the same `set.seed(613)`.
 
 ::: {.callout-note title="Solution"}
-Add solution here
+```{r}
+
+library(tidyverse)
+
+# Define the simulation function
+run_simulation <- function(n, sigma, test_data) {
+  set.seed(613)
+  
+  # Define functions for simulation
+  X_sim <- function(n) {
+    rnorm(n, mean = 0, sd = 1)
+  }
+  
+  Y_sim <- function(X, stdv) {
+    n <- length(X)  # Get num samps from X
+    epsilon <- rnorm(n, mean = 0, sd = stdv)  # noise term epsilon
+    -1 + 0.5 * X + 0.2 * X^2 + epsilon  # put together
+  }
+  
+  poly_eval <- function(deg, data_train, data_test) {
+    if (deg == 0) {
+      m <- lm(Y ~ 1, data = data_train)  # intercept only model
+    } else {
+      m <- lm(Y ~ poly(X, degree = deg), data = data_train)  # polynomial
+    }
+    # Calculate test MSE
+    yhat <- predict(m, data_test)  # predictions at test X's
+    mse_test <- mean((data_test$Y - yhat)^2)  # test MSE
+    # Output a data frame of relevant info
+    tibble(degree = deg, mse_test = mse_test)
+  }
+  
+  # Initialize a data frame to store MSE results and a vector to count best models
+  results <- data.frame()
+  best_model_count <- tibble(degree = c(1, 2, 3), count = 0)
+  
+  # Run the simulation 100 times
+  for (i in 1:100) {
+    # Generate training data
+    X_train <- X_sim(n)
+    Y_train <- Y_sim(X_train, sigma)
+    train_data <- data.frame(X = X_train, Y = Y_train)
+    
+    # Fit models and calculate MSE
+    lin_mse <- poly_eval(deg = 1, data_train = train_data, data_test = test_data)
+    quad_mse <- poly_eval(deg = 2, data_train = train_data, data_test = test_data)
+    cub_mse <- poly_eval(deg = 3, data_train = train_data, data_test = test_data)
+    
+    # Combine results
+    simulation_results <- bind_rows(lin_mse, quad_mse, cub_mse)
+    results <- bind_rows(results, simulation_results)
+    
+    # Identify the best model in this simulation
+    best_model <- simulation_results %>%
+      filter(mse_test == min(mse_test)) %>%
+      pull(degree)
+    
+    # Update the count of best models
+    best_model_count <- best_model_count %>%
+      mutate(count = ifelse(degree %in% best_model, count + 1, count))
+  }
+  
+  # Return results and best model counts
+  list(results = results, best_model_count = best_model_count)
+}
+
+# Example usage:
+set.seed(613)
+X_test <- X_sim(10000)
+Y_test <- Y_sim(X_test, 3)
+test_data <- data.frame(X = X_test, Y = Y_test)
+
+# Run the simulation function with desired parameters
+simulation_results <- run_simulation(n = 100, sigma = 3, test_data = test_data)
+
+# Print the best model counts
+print(simulation_results$best_model_count)
+
+
+
+```
 :::
 
+## i. Performance when $\sigma=2$
 
-## i. Performance when $\sigma=2$ 
+Use your function to repeat the simulation in part *f*, but use $\sigma=2$. Report the number of times each model was best (you do not need to produce any plots).
 
-Use your function to repeat the simulation in part *f*, but use $\sigma=2$. Report the number of times each model was best (you do not need to produce any plots). 
-
-- Be sure to generate new test data with ($n = 10000$, $\sigma = 2$, using `seed = 612`). 
+-   Be sure to generate new test data with ($n = 10000$, $\sigma = 2$, using `seed = 612`).
 
 ::: {.callout-note title="Solution"}
-Add solution here
-:::
+```{r}
+# Define the simulation function
+run_simulation <- function(n, sigma, test_data) {
+  set.seed(613)
+  
+  # Define functions for simulation
+  X_sim <- function(n) {
+    rnorm(n, mean = 0, sd = 1)
+  }
+  
+  Y_sim <- function(X, stdv) {
+    n <- length(X)  # Get num samps from X
+    epsilon <- rnorm(n, mean = 0, sd = stdv)  # noise term epsilon
+    -1 + 0.5 * X + 0.2 * X^2 + epsilon  # put together
+  }
+  
+  poly_eval <- function(deg, data_train, data_test) {
+    if (deg == 0) {
+      m <- lm(Y ~ 1, data = data_train)  # intercept only model
+    } else {
+      m <- lm(Y ~ poly(X, degree = deg), data = data_train)  # polynomial
+    }
+    # Calculate test MSE
+    yhat <- predict(m, data_test)  # predictions at test X's
+    mse_test <- mean((data_test$Y - yhat)^2)  # test MSE
+    # Output a data frame of relevant info
+    tibble(degree = deg, mse_test = mse_test)
+  }
+  
+  # Initialize a data frame to store MSE results and a vector to count best models
+  results <- data.frame()
+  best_model_count <- tibble(degree = c(1, 2, 3), count = 0)
+  
+  # Run the simulation 100 times
+  for (i in 1:100) {
+    # Generate training data
+    X_train <- X_sim(n)
+    Y_train <- Y_sim(X_train, sigma)
+    train_data <- data.frame(X = X_train, Y = Y_train)
+    
+    # Fit models and calculate MSE
+    lin_mse <- poly_eval(deg = 1, data_train = train_data, data_test = test_data)
+    quad_mse <- poly_eval(deg = 2, data_train = train_data, data_test = test_data)
+    cub_mse <- poly_eval(deg = 3, data_train = train_data, data_test = test_data)
+    
+    # Combine results
+    simulation_results <- bind_rows(lin_mse, quad_mse, cub_mse)
+    results <- bind_rows(results, simulation_results)
+    
+    # Identify the best model in this simulation
+    best_model <- simulation_results %>%
+      filter(mse_test == min(mse_test)) %>%
+      pull(degree)
+    
+    # Update the count of best models
+    best_model_count <- best_model_count %>%
+      mutate(count = ifelse(degree %in% best_model, count + 1, count))
+  }
+  
+  # Return results and best model counts
+  list(results = results, best_model_count = best_model_count)
+}
 
+# Set seed for generating test data
+set.seed(612)
+
+# Generate new test data with sigma = 2
+X_test <- X_sim(10000)
+Y_test <- Y_sim(X_test, 2)
+test_data <- data.frame(X = X_test, Y = Y_test)
+
+# Run the simulation function with sigma = 2
+simulation_results <- run_simulation(n = 100, sigma = 2, test_data = test_data)
+
+# Print the count of how many times each model was the best
+print(simulation_results$best_model_count)
+
+```
+:::
 
 ## j. Performance when $\sigma=4$ and $n=300$
 
 Repeat *i*, but now use $\sigma=4$ and $n=300$.
 
-- Be sure to generate new test data with ($n = 10000$, $\sigma = 4$, using `seed = 612`). 
+-   Be sure to generate new test data with ($n = 10000$, $\sigma = 4$, using `seed = 612`).
 
 ::: {.callout-note title="Solution"}
-Add solution here
-:::
+```{r}
+# Define the simulation function
+run_simulation <- function(n, sigma, test_data) {
+  set.seed(613)
+  
+  # Define functions for simulation
+  X_sim <- function(n) {
+    rnorm(n, mean = 0, sd = 1)
+  }
+  
+  Y_sim <- function(X, stdv) {
+    n <- length(X)  # Get num samps from X
+    epsilon <- rnorm(n, mean = 0, sd = stdv)  # noise term epsilon
+    -1 + 0.5 * X + 0.2 * X^2 + epsilon  # put together
+  }
+  
+  poly_eval <- function(deg, data_train, data_test) {
+    if (deg == 0) {
+      m <- lm(Y ~ 1, data = data_train)  # intercept only model
+    } else {
+      m <- lm(Y ~ poly(X, degree = deg), data = data_train)  # polynomial
+    }
+    # Calculate test MSE
+    yhat <- predict(m, data_test)  # predictions at test X's
+    mse_test <- mean((data_test$Y - yhat)^2)  # test MSE
+    # Output a data frame of relevant info
+    tibble(degree = deg, mse_test = mse_test)
+  }
+  
+  # Initialize a data frame to store MSE results and a vector to count best models
+  results <- data.frame()
+  best_model_count <- tibble(degree = c(1, 2, 3), count = 0)
+  
+  # Run the simulation 100 times
+  for (i in 1:100) {
+    # Generate training data
+    X_train <- X_sim(n)
+    Y_train <- Y_sim(X_train, sigma)
+    train_data <- data.frame(X = X_train, Y = Y_train)
+    
+    # Fit models and calculate MSE
+    lin_mse <- poly_eval(deg = 1, data_train = train_data, data_test = test_data)
+    quad_mse <- poly_eval(deg = 2, data_train = train_data, data_test = test_data)
+    cub_mse <- poly_eval(deg = 3, data_train = train_data, data_test = test_data)
+    
+    # Combine results
+    simulation_results <- bind_rows(lin_mse, quad_mse, cub_mse)
+    results <- bind_rows(results, simulation_results)
+    
+    # Identify the best model in this simulation
+    best_model <- simulation_results %>%
+      filter(mse_test == min(mse_test)) %>%
+      pull(degree)
+    
+    # Update the count of best models
+    best_model_count <- best_model_count %>%
+      mutate(count = ifelse(degree %in% best_model, count + 1, count))
+  }
+  
+  # Return results and best model counts
+  list(results = results, best_model_count = best_model_count)
+}
 
+# Set seed for generating test data
+set.seed(612)
+
+# Generate new test data with sigma = 4
+X_test <- X_sim(10000)
+Y_test <- Y_sim(X_test, 4)
+test_data <- data.frame(X = X_test, Y = Y_test)
+
+# Run the simulation function with sigma = 2
+simulation_results <- run_simulation(n = 10000, sigma = 4, test_data = test_data)
+
+# Print the count of how many times each model was the best
+print(simulation_results$best_model_count)
+```
+:::
 
 ## k. Understanding
 
 Describe the effects $\sigma$ and $n$ has on selection of the best model? Why is the *true* model form (i.e., quadratic) not always the *best* model to use when prediction is the goal?
 
 ::: {.callout-note title="Solution"}
-Add solution here
+Simpler models (like linear) might have higher bias but lower variance, making them more robust in scenarios with high noise or limited data. This robustness can lead to better predictive performance on test data.
+
+More complex models might fit the training data better (lower bias) but can have high variance, especially with limited data or high noise. This can result in poorer generalization.
 :::
-
-
-
-
-
-
-
