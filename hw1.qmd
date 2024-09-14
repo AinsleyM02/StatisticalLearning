@@ -103,7 +103,7 @@ Fit three polynomial regression models using least squares: linear, quadratic, a
 
 ::: {.callout-note title="Solution"}
 ```{r}
-#NOTE THE LEGEND IS INCORRECT
+#
 
 #simulate realizations
 set.seed(611)
@@ -112,7 +112,7 @@ X <- X_sim(100)
 # from y
 Y <- Y_sim(X, 3)
 # make df
-sim_data=data.frame(X=X,Y=Y)
+sim_data=data.frame(X=X,Y=Y) # this is the training data with 100 observations
 # ggplot
 library(ggplot2)
 # create the lines:
@@ -133,13 +133,14 @@ sim_data$cub_pred <- predict(cub_model, newdata = sim_data)
 # Scatter plot with fitted lines and true regression line
 ggplot(sim_data, aes(x = X, y = Y), color=sim_data) +
   geom_point() +
-  geom_line(aes(y = lin_pred, color="blue")) +
-  geom_line(aes(y = quad_pred, color="green")) +
-  geom_line(aes(y = cub_pred, color="purple")) +
-  geom_function(fun = true_reg, aes(color = "red")) +
+  geom_line(aes(y = lin_pred, color="Linear")) +
+  geom_line(aes(y = quad_pred, color="Quadratic")) +
+  geom_line(aes(y = cub_pred, color="Cubic")) +
+  geom_function(fun = true_reg, aes(color = "True_regression")) +
   labs(title = "Scatterplot with Fitted Regression Lines",
        x = "X",
-       y = "Y")
+       y = "Y")+
+  scale_color_manual(values=c('Linear'='blue', 'Quadratic'='red','Cubic'='green','True_regression'='black'))
 
 ```
 :::
@@ -153,16 +154,18 @@ Generate a *test data* set of 10,000 observations from the same distributions. U
 
 ::: {.callout-note title="Solution"}
 ```{r}
+# ASK ABOUT THIS ONE
+library(tidyverse)
 #simulate test data
 set.seed(612)
 # from x:
 X_test <- X_sim(10000)
 # from y
-Y_test <- Y_sim(X, 3)
+Y_test <- Y_sim(X_test, 3)
 # make df
-test_data=data.frame(X=X_test,Y=Y_test)
+test_data=tibble(X=X_test,Y=Y_test)
 
-# models
+# models on the training data
 lin_model <- lm(Y ~ poly(X, degree = 1), data = sim_data)
 quad_model <- lm(Y ~ poly(X, degree = 2), data = sim_data)
 cub_model <- lm(Y ~ poly(X, degree = 3), data = sim_data)
@@ -172,7 +175,7 @@ test_data$lin_pred <- predict(lin_model, newdata = test_data)
 test_data$quad_pred <- predict(quad_model, newdata = test_data)
 test_data$cub_pred <- predict(cub_model, newdata = test_data)
 
-# calculate mse for each model:
+# calculate mse for each model: (note for next time the Metrics package has the mse function)
 mse_linear <- mean((test_data$Y - test_data$lin_pred)^2)
 mse_quadratic <- mean((test_data$Y - test_data$quad_pred)^2)
 mse_cubic <- mean((test_data$Y - test_data$cub_pred)^2)
@@ -183,6 +186,7 @@ mse_cubic
 
 ```
 Are the results as expected:
+
 Above it was noted that "The true model is quadratic, but we are also fitting linear (less complex) and cubic (more complex) models." Thus, we expect the quadratic model to have the lowest mse with cubic having the next lowest as it is closer to the true fit, although it might overfit. We expect the linear function to have the largest mse as it will underfit the data. This is not the case at all, so this result is very unexpected. 
 
 :::
@@ -193,14 +197,16 @@ What is the best achievable MSE? That is, what is the MSE if the true $f(x)$ was
 
 ::: {.callout-note title="Solution"}
 ```{r}
+library(Metrics)
 #simulate test data
 set.seed(612)
 # from x:
 X_test <- X_sim(10000)
 # from y
-Y_test <- Y_sim(X, 3)
+Y_test <- Y_sim(X_test, 3)
 # make df
-test_data=data.frame(X=X_test,Y=Y_test)
+#test_data=data.frame(X=X_test,Y=Y_test)
+test_data=tibble(X=X_test, Y=Y_test)
 
 # true regression function
 true_reg <- function(x) {
@@ -214,8 +220,11 @@ test_data$true_pred <- true_reg(test_data$X)
 best_mse <- mean((test_data$Y - test_data$true_pred)^2)
 best_mse
 
-diff<-10.37105-9.936763
+diff<-best_mse-mse_linear
 diff
+
+# mse function:
+#mse(test_data$Y, test_data$true_pred)
 
 ```
 The best method is the linear model with mse=10.37105, so the difference is 0.434287 as the best achievable mse is  9.936763 when f(x) is used to evaluate the test set.  
@@ -304,6 +313,8 @@ Show a count of how many times each model was the best. That is, out of the 100 
 
 ::: {.callout-note title="Solution"}
 ```{r}
+# A DIFFERENCE HERE
+
 # Define functions for simulation and model evaluation
 X_sim <- function(n) {
   rnorm(n, mean = 0, sd = 1)
@@ -384,6 +395,7 @@ Write a function that implements the simulation in part *f*. The function should
 ::: {.callout-note title="Solution"}
 ```{r}
 
+
 library(tidyverse)
 
 # Define the simulation function
@@ -445,20 +457,10 @@ run_simulation <- function(n, sigma, test_data) {
   }
   
   # Return results and best model counts
-  list(results = results, best_model_count = best_model_count)
+  print(list(results = results, best_model_count = best_model_count))
 }
 
-# Example usage:
-set.seed(613)
-X_test <- X_sim(10000)
-Y_test <- Y_sim(X_test, 3)
-test_data <- data.frame(X = X_test, Y = Y_test)
 
-# Run the simulation function with desired parameters
-simulation_results <- run_simulation(n = 100, sigma = 3, test_data = test_data)
-
-# Print the best model counts
-print(simulation_results$best_model_count)
 
 
 
@@ -473,6 +475,7 @@ Use your function to repeat the simulation in part *f*, but use $\sigma=2$. Repo
 
 ::: {.callout-note title="Solution"}
 ```{r}
+# SAME
 # Define the simulation function
 run_simulation <- function(n, sigma, test_data) {
   set.seed(613)
@@ -631,7 +634,7 @@ Y_test <- Y_sim(X_test, 4)
 test_data <- data.frame(X = X_test, Y = Y_test)
 
 # Run the simulation function with sigma = 2
-simulation_results <- run_simulation(n = 10000, sigma = 4, test_data = test_data)
+simulation_results <- run_simulation(n = 300, sigma = 4, test_data = test_data)
 
 # Print the count of how many times each model was the best
 print(simulation_results$best_model_count)
@@ -643,7 +646,7 @@ print(simulation_results$best_model_count)
 Describe the effects $\sigma$ and $n$ has on selection of the best model? Why is the *true* model form (i.e., quadratic) not always the *best* model to use when prediction is the goal?
 
 ::: {.callout-note title="Solution"}
-Simpler models (like linear) might have higher bias but lower variance, making them more robust in scenarios with high noise or limited data. This robustness can lead to better predictive performance on test data.
+Simpler models (linear) might have higher bias but lower variance, making them better with more error or less data. This can lead to better performance on test data.
 
-More complex models might fit the training data better (lower bias) but can have high variance, especially with limited data or high noise. This can result in poorer generalization.
+More complex models might have lower bias and so fit the training data better, but have high variance, especially with less data or more error. This can result in bad generalization.
 :::
