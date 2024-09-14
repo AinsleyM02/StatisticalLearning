@@ -1,6 +1,6 @@
 ---
 title: "Homework #2: Resampling" 
-author: "**Your Name Here**"
+author: "**Ainsley McLaughlin**"
 format: ds6030hw-html
 ---
 
@@ -35,7 +35,20 @@ Y &= 1 + 2x + 5\sin(5x) + \epsilon \\
 
 ::: {.callout-note title="Solution"}
 
-Add solution here
+```{r}
+X_fun<-function(n){
+  runif(n, min = 0, max = 2) #from a uniform with n observations
+}
+
+f <- function(x) {
+  1 + 2*x + 5*sin(5*x)     # true mean function
+}
+
+Y_fun <- function(x){     # generate Y|X from N{f(x),sd}
+  n = length(x)
+  f(x) + rnorm(n, mean=0, sd=sqrt(2.5))
+}
+```
 
 :::
 
@@ -45,7 +58,25 @@ Simulate $n=100$ realizations from these distributions. Produce a scatterplot an
 
 ::: {.callout-note title="Solution"}
 
-Add solution here
+```{r}
+library(tidyverse)
+#set seed for replicability
+set.seed(211)
+#sim data w 100 obsv
+x = X_fun(100)
+y = Y_fun(x)
+#put into a df (tibble)
+data_sim<-tibble(X=x,Y=y)
+#View(data_sim)
+
+
+#plot
+library(ggplot2)
+ggplot(data_sim, aes(x,y))+
+  geom_point()+
+  geom_function(fun=f, color="orange")
+
+```
 
 :::
 
@@ -56,7 +87,23 @@ Fit a 5th degree polynomial. Produce a scatterplot and draw the *estimated* regr
 
 ::: {.callout-note title="Solution"}
 
-Add solution here
+```{r}
+#fit the model
+fifth_poly<-lm(y ~ poly(x, degree = 5), data = data_sim)
+
+# Create predictions for plotting, add to the df that exists
+data_sim$poly5_pred <- predict(fifth_poly, newdata = data_sim)
+
+#plot
+ggplot(data_sim, aes(x,y))+
+  geom_point()+
+  geom_function(fun=f, aes(color = "True_regression"))+
+  geom_line(aes(y = poly5_pred, color="Fifth_deg"))+
+  labs(title = "Scatterplot with Estimated Regression Lines",
+       x = "X",
+       y = "Y")+
+  scale_color_manual(values=c('Fifth_deg'='blue','True_regression'='orange'))
+```
 
 :::
 
@@ -70,7 +117,27 @@ Make 200 bootstrap samples. For each bootstrap sample, fit a 5th degree polynomi
 
 ::: {.callout-note title="Solution"}
 
-Add solution here
+```{r}
+#DOES NOT WORK SS
+# 200 boot samples
+#set.seed(212)
+#tution_boot <- bootstraps(data_sim, times = 200, apparent = TRUE)
+
+n_boot = 200 # number of bootstrap samples
+set.seed(212) # set random seed
+preds=tibble() # empty df for predictions
+for(n in 1:n_boot){
+  #- sample from empirical distribution
+  ind = sample(n, replace=TRUE) # sample indices with replacement
+  data_boot = data_train[ind,] # bootstrap sample
+  #- fit fifth deg poly model
+  m_boot = lm(y ~ poly(x, degree = 5), data=data_boot) # fit simple OLS
+  # save the predictions
+  preds$poly5_pred <- predict(fifth_poly, newdata = data_boot)
+}
+
+
+```
 
 :::
     
