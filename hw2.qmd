@@ -117,28 +117,161 @@ Make 200 bootstrap samples. For each bootstrap sample, fit a 5th degree polynomi
 
 ::: {.callout-note title="Solution"}
 
-```{r}
-#DOES NOT WORK SS
-# 200 boot samples
-#set.seed(212)
-#tution_boot <- bootstraps(data_sim, times = 200, apparent = TRUE)
 
-n_boot = 200 # number of bootstrap samples
-set.seed(212) # set random seed
-preds=tibble() # empty df for predictions
-for(n in 1:n_boot){
-  #- sample from empirical distribution
-  ind = sample(n, replace=TRUE) # sample indices with replacement
-  data_boot = data_train[ind,] # bootstrap sample
-  #- fit fifth deg poly model
-  m_boot = lm(y ~ poly(x, degree = 5), data=data_boot) # fit simple OLS
-  # save the predictions
-  preds$poly5_pred <- predict(fifth_poly, newdata = data_boot)
+```{r}
+
+# july 16th in princes class we did this
+# Set the seed for reproducibility
+set.seed(212)
+
+# Number of bootstrap samples
+n_boot = 200
+
+# Define evaluation points for predictions
+eval_pts = seq(0, 2, length = 100)
+
+# Initialize an empty tibble to store predictions
+preds <- list()
+
+# Loop over the number of bootstrap samples
+for (i in 1:n_boot) { # basically from 1 to 200
+  
+  # Sample from the original training data with replacement
+  ind = sample(1:nrow(data_sim), replace = TRUE) # Sample row indices
+  data_boot = data_sim[ind, ] # Create bootstrap sample
+  
+  # Fit 5th-degree polynomial model
+  m_boot = lm(y ~ poly(x, degree = 5), data = data_boot) # Fit polynomial model
+  
+  # Predict values at the evaluation points
+  poly5_pred = predict(m_boot, newdata = data.frame(x=eval_pts))
+  
+  # Store the predictions in the preds tibble
+  preds[[i]]<-data.frame(x=eval_pts, y=poly5_pred, iteration=i)
+  
+  preds_data <- bind_rows(preds)
 }
 
+# Visualize: Scatterplot with original data and 200 bootstrap curves
+ggplot(data_sim, aes(x = x, y = y)) +
+  geom_point(color = "blue") +  # Scatterplot of original data
+  geom_line(data = preds_data, aes(x = x, y = y, group = iteration), 
+            color = "red", alpha = 0.4) +  # 200 bootstrap prediction curves
+  labs(title = "Bootstrap Predictions with 200 bootstrap curves",
+       x = "X", y = "Y")
+```
+```{r}
+# chat's edits which still do not work: 
+# Set the seed for reproducibility
+set.seed(212)
+
+# Number of bootstrap samples
+n_boot = 200
+
+# Define evaluation points for predictions
+eval_pts = data.frame(x = seq(0, 2, length = 100)) # Create a data frame for eval_pts
+
+# Initialize an empty list to store predictions
+preds <- vector("list", n_boot)
+
+# Loop over the number of bootstrap samples
+for (i in 1:n_boot) {
+  
+  # Sample from the original training data with replacement
+  ind = sample(1:nrow(data_sim), replace = TRUE) # Sample row indices
+  data_boot = data_sim[ind, ] # Create bootstrap sample
+  
+  # Fit 5th-degree polynomial model
+  m_boot = lm(y ~ poly(x, degree = 5), data = data_boot) # Fit polynomial model
+  
+  # Predict values at the evaluation points
+  poly5_pred = predict(m_boot, newdata = eval_pts)
+  
+  # Store the predictions in the preds list, assigning iteration as i
+  preds[[i]] <- data.frame(x = eval_pts$x, y = poly5_pred, iteration = i)
+}
+
+# Combine all predictions into a single data frame
+preds_data <- bind_rows(preds)
+
+# Visualize: Scatterplot with original data and 200 bootstrap curves
+ggplot(data_sim, aes(x = x, y = y)) +
+  geom_point(color = "blue") +  # Scatterplot of original data
+  geom_line(data = preds_data, aes(x = x, y = y, group = iteration), 
+            color = "red", alpha = 0.2) +  # 200 bootstrap prediction curves
+  labs(title = "Bootstrap Predictions with 200 bootstrap curves",
+       x = "X", y = "Y")
 
 ```
+```{r}
+# try with the function replicated instead:
+# Set the seed for reproducibility
+set.seed(212)
 
+# Number of bootstrap samples
+n_boot = 200
+
+# Define evaluation points for predictions
+eval_pts = seq(0, 2, length = 100) 
+# function for the prediction points and sampling with replacement
+pred_samp_fun<-function(train_data, evals){
+  # sample with replacement at that index
+  boot_samp = train_data[sample(1:nrow(train_data), replace = TRUE),]
+  # Fit polynomial model
+  poly5_boot_fit = lm(y ~ poly(x, degree = 5), data = boot_samp) 
+  #predict
+  predict(poly5_boot_fit, newdata = data.frame(x=evals))
+  
+}
+# call this function 200 times:
+boot_preds<-replicate(200, pred_samp_fun(data_sim, eval_pts))
+boot_pred_df<-data.frame(boot_preds)
+
+# plot
+ggplot(data_sim, aes(x = x, y = y)) +
+  geom_point(color = "blue") +  # Scatterplot of original data
+  geom_line(data = boot_pred_df, aes(x = x, y = y), 
+            color = "green", alpha = 0.2) +  # 200 bootstrap prediction curves
+  labs(title = "Bootstrap Predictions with 200 bootstrap curves",
+       x = "X", y = "Y")
+```
+
+```{r}
+# Set the seed for reproducibility
+set.seed(212)
+
+# Number of bootstrap samples
+n_boot <- 200
+
+# Define evaluation points for predictions
+eval_pts <- seq(0, 2, length = 100)
+
+# Function for the prediction points and sampling with replacement
+pred_samp_fun <- function(train_data, evals) {
+  # sample with replacement at that index
+  boot_samp <- train_data[sample(1:nrow(train_data), replace = TRUE),]
+  # Fit polynomial model
+  poly5_boot_fit <- lm(y ~ poly(x, degree = 5), data = boot_samp) 
+  # Predict
+  predict(poly5_boot_fit, newdata = data.frame(x = evals))
+}
+
+# Call this function 200 times and structure the output
+boot_preds <- replicate(n_boot, pred_samp_fun(data_sim, eval_pts))
+
+# Reshape predictions into a data frame with 'x' and 'y' columns
+boot_pred_df <- data.frame(x = eval_pts, boot_preds)
+boot_pred_long <- boot_pred_df %>%
+  pivot_longer(cols = starts_with("X"), names_to = "sample", values_to = "y")
+
+# Plot
+ggplot(data_sim, aes(x = x, y = y)) +
+  geom_point(color = "blue") +  # Scatterplot of original data
+  geom_line(data = boot_pred_long, aes(x = x, y = y, group = sample), 
+            color = "green", alpha = 0.2) +  # 200 bootstrap prediction curves
+  labs(title = "Bootstrap Predictions with 200 bootstrap curves",
+       x = "X", y = "Y")
+```
 :::
     
 ## e. Confidence Intervals
@@ -149,7 +282,9 @@ Calculate the pointwise 95% confidence intervals from the bootstrap samples. Tha
 
 ::: {.callout-note title="Solution"}
 
-Add solution here
+```{r}
+
+```
 
 :::
 
