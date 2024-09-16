@@ -118,7 +118,7 @@ Make 200 bootstrap samples. For each bootstrap sample, fit a 5th degree polynomi
 ::: {.callout-note title="Solution"}
 
 
-```{r}
+Another way------------------
 
 # july 16th in princes class we did this
 # Set the seed for reproducibility
@@ -159,8 +159,8 @@ ggplot(data_sim, aes(x = x, y = y)) +
             color = "red", alpha = 0.4) +  # 200 bootstrap prediction curves
   labs(title = "Bootstrap Predictions with 200 bootstrap curves",
        x = "X", y = "Y")
-```
-```{r}
+
+Another wayyyy---------------
 # chat's edits which still do not work: 
 # Set the seed for reproducibility
 set.seed(212)
@@ -202,8 +202,8 @@ ggplot(data_sim, aes(x = x, y = y)) +
   labs(title = "Bootstrap Predictions with 200 bootstrap curves",
        x = "X", y = "Y")
 
-```
-```{r}
+-----------------
+# ANOTHER WAY
 # try with the function replicated instead:
 # Set the seed for reproducibility
 set.seed(212)
@@ -234,44 +234,116 @@ ggplot(data_sim, aes(x = x, y = y)) +
             color = "green", alpha = 0.2) +  # 200 bootstrap prediction curves
   labs(title = "Bootstrap Predictions with 200 bootstrap curves",
        x = "X", y = "Y")
-```
+
 
 ```{r}
-# Set the seed for reproducibility
-set.seed(212)
 
-# Number of bootstrap samples
-n_boot <- 200
+set.seed(212)
 
 # Define evaluation points for predictions
 eval_pts <- seq(0, 2, length = 100)
 
 # Function for the prediction points and sampling with replacement
 pred_samp_fun <- function(train_data, evals) {
-  # sample with replacement at that index
-  boot_samp <- train_data[sample(1:nrow(train_data), replace = TRUE),]
+  # Sample with replacement at that index
+  boot_samp <- train_data[sample(1:nrow(train_data), nrow(train_data), replace = TRUE), ]
   # Fit polynomial model
-  poly5_boot_fit <- lm(y ~ poly(x, degree = 5), data = boot_samp) 
+  poly5_boot_fit <- lm(y ~ poly(x, degree = 5), data = boot_samp)
   # Predict
   predict(poly5_boot_fit, newdata = data.frame(x = evals))
 }
 
 # Call this function 200 times and structure the output
-boot_preds <- replicate(n_boot, pred_samp_fun(data_sim, eval_pts))
+boot_preds <- replicate(200, {pred_samp_fun(data_sim, eval_pts)})
 
-# Reshape predictions into a data frame with 'x' and 'y' columns
-boot_pred_df <- data.frame(x = eval_pts, boot_preds)
-boot_pred_long <- boot_pred_df %>%
-  pivot_longer(cols = starts_with("X"), names_to = "sample", values_to = "y")
+# Reshape predictions into a data frame
+boot_pred_df <- data.frame(
+  X = rep(eval_pts, 200),
+  Y = as.vector(boot_preds),
+  curve_id = rep(1:200, each = length(eval_pts))
+)
 
 # Plot
-ggplot(data_sim, aes(x = x, y = y)) +
-  geom_point(color = "blue") +  # Scatterplot of original data
-  geom_line(data = boot_pred_long, aes(x = x, y = y, group = sample), 
-            color = "green", alpha = 0.2) +  # 200 bootstrap prediction curves
+ggplot() +
+  geom_point(data = data_sim, aes(x = x, y = y), color = "blue") +  # Scatterplot of original data
+  geom_line(data = boot_pred_df, aes(x = X, y = Y, group = curve_id), 
+            color = "purple", alpha = 0.1) +  # 200 bootstrap prediction curves
   labs(title = "Bootstrap Predictions with 200 bootstrap curves",
        x = "X", y = "Y")
 ```
+```{r}
+# chat's answer:
+
+# Set the seed for reproducibility
+set.seed(212)
+
+# Define evaluation points for predictions
+eval_pts <- seq(0, 2, length = 100)
+
+# Function for the prediction points and sampling with replacement
+pred_samp_fun <- function(train_data, evals) {
+  # Sample with replacement (check this)
+  boot_samp <- train_data[sample(1:nrow(train_data), nrow(train_data), replace = TRUE), ]
+  
+  # Fit polynomial model (check model variability)
+  poly5_boot_fit <- lm(y ~ poly(x, degree = 5), data = boot_samp)
+  
+  # Return predicted values
+  predict(poly5_boot_fit, newdata = data.frame(x = evals))
+}
+
+# Generate predictions for 200 bootstrap samples
+boot_preds <- replicate(200, pred_samp_fun(data_sim, eval_pts))
+
+# Check if the first few bootstrap samples are different
+print(boot_preds[, 1:5])  # Inspect first 5 samples for variability
+
+# Reshape predictions into a data frame
+boot_pred_df <- data.frame(
+  X = rep(eval_pts, 200),
+  Y = as.vector(boot_preds),
+  curve_id = rep(1:200, each = length(eval_pts))
+)
+
+# Plot with ggplot
+ggplot() +
+  geom_point(data = data_sim, aes(x = x, y = y), color = "blue") +  # Scatterplot of original data
+  geom_line(data = boot_pred_df, aes(x = X, y = Y, group = curve_id), 
+            color = "purple", alpha = 0.1) +  # 200 bootstrap prediction curves
+  labs(title = "Bootstrap Predictions with 200 Curves",
+       x = "X", y = "Y") +
+  theme_minimal()
+
+
+```
+```{r}
+# when prince did it: # Bootstrapping:
+take avg of all estimates for Bo and B1. Is more robust than just using lm to estimate the parameters
+
+```{r}
+#do this code 5 times
+Boot_estimates<-replicate(5,{
+
+#the sample takes random samples and choose the rows from 1 to the number of rows in the dataset, how many times you want to sample it is in the second arg, also replace=TRUE, leave so selects all the columns
+boot_samps<-st[sample(1:nrow(st),nrow(st),replace=T),]
+#now everytime pick a sample, fit a linear model
+boot_model<-lm(Profit~R.D.Spend, data=boot_samps)
+#get the coeff of that model
+coef(boot_model)
+})
+
+#the bootstrapp dataset is not a tidy dataset yet:transpose it and coerce to a df
+estimates_df<-data.frame(t(Boot_estimates))
+#View(estimates)
+
+#now do the graph:
+ggplot(st, aes(x=R.D.Spend, y=Profit))+geom_point()+
+  geom_smooth(method='lm', se=F, color='blue')+
+  geom_abline(data=estimates_df, aes(intercept=X.Intercept., slope=R.D.Spend),color="pink")
+#abline will draw a line thru intercept and pt
+
+```
+
 :::
     
 ## e. Confidence Intervals
@@ -307,7 +379,31 @@ Use $10$-fold cross-validation to find the value of $k$ (i.e., neighborhood size
 
 ::: {.callout-note title="Solution"}
 
-Add solution here
+```{r}
+# the data from part B:
+
+#set seed for replicability
+set.seed(211)
+#sim data w 100 obsv
+x = X_fun(100)
+y = Y_fun(x)
+#put into a df (tibble)
+data_sim<-data.frame(X=x,Y=y)
+
+
+#update the 
+library(caret)
+# split the data:
+#sample function randomly generates a sample from the data
+#floor or ceiling is bring it up or down
+split<-sample(1:nrow(data_sim), size=floor(0.8*nrow(data_sim)))
+# select all the rows that meet those indexes
+train_data<-data_sim[split,]
+test_data<-data_sim[-split,]
+# use the train function:
+
+
+```
 
 :::
 
