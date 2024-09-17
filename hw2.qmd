@@ -379,29 +379,58 @@ Use $10$-fold cross-validation to find the value of $k$ (i.e., neighborhood size
 
 ::: {.callout-note title="Solution"}
 
+
 ```{r}
-# the data from part B:
+# from chat:
+# Load necessary libraries
+library(caret)  # For cross-validation and training models
+library(ggplot2)  # For plotting results
 
-#set seed for replicability
-set.seed(211)
-#sim data w 100 obsv
-x = X_fun(100)
-y = Y_fun(x)
-#put into a df (tibble)
-data_sim<-data.frame(X=x,Y=y)
+# Set seed for reproducibility
+set.seed(221)
 
+# Simulate data (replace with your actual data if needed)
+x <- X_fun(100)
+y <- Y_fun(x)
+data_sim <- data.frame(X = x, Y = y)
 
-#update the 
-library(caret)
-# split the data:
-#sample function randomly generates a sample from the data
-#floor or ceiling is bring it up or down
-split<-sample(1:nrow(data_sim), size=floor(0.8*nrow(data_sim)))
-# select all the rows that meet those indexes
-train_data<-data_sim[split,]
-test_data<-data_sim[-split,]
-# use the train function:
+# Prepare the training control for 10-fold cross-validation
+train_control <- trainControl(method = "cv", number = 10)
 
+# Define the range of k values to search over
+k_values <- 3:40
+
+# Train the kNN model with cross-validation
+knn_model <- train(
+  X ~ Y,                     # Formula (X as the predictor, Y as the response)
+  data = data_sim,            # Data
+  method = "knn",             # Specify kNN method
+  tuneGrid = expand.grid(k = k_values),  # Search over k = 3 to 40
+  trControl = train_control,  # 10-fold cross-validation
+  metric = "RMSE"             # Use RMSE (Root Mean Squared Error) for evaluation
+)
+
+# Print optimal k and corresponding MSE (squared RMSE)
+optimal_k <- knn_model$bestTune$k
+optimal_rmse <- knn_model$results[knn_model$results$k == optimal_k, "RMSE"]
+optimal_mse <- optimal_rmse^2
+
+cat("Optimal k:", optimal_k, "\n")
+cat("Corresponding MSE:", optimal_mse, "\n")
+```
+
+```{r}
+# Create a plot of k vs. cross-validated MSE
+mse_results <- knn_model$results
+mse_results$MSE <- mse_results$RMSE^2  # Convert RMSE to MSE
+
+ggplot(mse_results, aes(x = k, y = MSE)) +
+  geom_line() +
+  geom_point() +
+  labs(title = "kNN Cross-Validation Results",
+       x = "Number of Neighbors (k)",
+       y = "Cross-Validated MSE") +
+  theme_minimal()
 
 ```
 
@@ -414,7 +443,63 @@ The $k$ (number of neighbors) in a kNN model determines the effective degrees of
 
 ::: {.callout-note title="Solution"}
 
-Add solution here
+```{r}
+# Load necessary libraries
+library(caret)  # For cross-validation and training models
+library(ggplot2)  # For plotting
+
+# Set seed for reproducibility
+set.seed(221)
+
+# Simulate data (replace with your actual data if needed)
+x <- X_fun(100)
+y <- Y_fun(x)
+data_sim <- data.frame(X = x, Y = y)
+
+# Number of observations
+n <- nrow(data_sim)
+
+# Prepare the training control for 10-fold cross-validation
+train_control <- trainControl(method = "cv", number = 10)
+
+# Define the range of k values to search over
+k_values <- 3:40
+
+# Train the kNN model with cross-validation
+knn_model <- train(
+  X ~ Y,                     # Formula (X as the predictor, Y as the response)
+  data = data_sim,            # Data
+  method = "knn",             # Specify kNN method
+  tuneGrid = expand.grid(k = k_values),  # Search over k = 3 to 40
+  trControl = train_control,  # 10-fold cross-validation
+  metric = "RMSE"             # Use RMSE (Root Mean Squared Error) for evaluation
+)
+
+# Optimal k and its corresponding RMSE (Root Mean Squared Error)
+optimal_k <- knn_model$bestTune$k
+optimal_rmse <- knn_model$results[knn_model$results$k == optimal_k, "RMSE"]
+optimal_mse <- optimal_rmse^2
+
+cat("Optimal k:", optimal_k, "\n")
+cat("Corresponding MSE:", optimal_mse, "\n")
+
+# Calculate Effective Degrees of Freedom (EDF) for each k
+mse_results <- knn_model$results
+mse_results$EDF <- n / mse_results$k  # EDF = n / k
+mse_results$MSE <- mse_results$RMSE^2  # Convert RMSE to MSE
+```
+
+```{r}
+# Plot EDF vs MSE
+ggplot(mse_results, aes(x = EDF, y = MSE)) +
+  geom_line() +
+  geom_point() +
+  labs(title = "kNN Cross-Validation Results (EDF vs MSE)",
+       x = "Effective Degrees of Freedom (EDF)",
+       y = "Cross-Validated MSE") +
+  theme_minimal()
+
+```
 
 :::
 
@@ -424,8 +509,26 @@ After running cross-validation, a final model fit from *all* of the training dat
 
 ::: {.callout-note title="Solution"}
 
-Add solution here
+```{r}
+# Refit the final kNN model using the entire dataset with the optimal k
+final_knn_model <- train(
+  X ~ Y,                   # Formula (X as predictor, Y as response)
+  data = data_sim,          # Entire dataset
+  method = "knn",           # kNN model
+  tuneGrid = expand.grid(k = optimal_k),  # Use the optimal k from cross-validation
+  trControl = trainControl(method = "none")  # No cross-validation for the final fit
+)
 
+# Make predictions using the final model
+final_predictions <- predict(final_knn_model, newdata = test_data)
+
+# Evaluate final model performance on test data (optional)
+final_mse <- mean((final_predictions - test_data$Y)^2)
+cat("Final Model MSE on Test Data:", final_mse, "\n")
+
+
+```
+Note: I chose k=7 since this was the k that had the lowest MSE value. The k associated with the lowest MSE effectively balances bias and variance and generally does the best on test data. Low k values make the model more flexible (higher edf), but this can lead to high variance (overfitting). However, high k values have lower edf, but usually increased bias which can potentially result in underfitting. 
 :::
 
 ## d. Evaluate actual performance
@@ -437,7 +540,67 @@ Now we will see how well cross-validation performed. Simulate a test data set of
 
 ::: {.callout-note title="Solution"}
 
-Add solution here
+```{r}
+# Load necessary libraries
+library(caret)
+
+# Set seed for reproducibility
+set.seed(223)
+
+# Simulate test data with 50,000 observations from the same distribution
+test_x <- X_fun(50000)
+test_y <- Y_fun(test_x)
+test_data <- data.frame(X = test_x, Y = test_y)
+
+# Set seed for training data generation (if not done already)
+set.seed(211)
+train_x <- X_fun(100)
+train_y <- Y_fun(train_x)
+train_data <- data.frame(X = train_x, Y = train_y)
+
+# Number of observations in the training data
+n_train <- nrow(train_data)
+
+# Define the range of k values (from part a)
+k_values <- 3:40
+
+# Initialize a data frame to store results
+results <- data.frame(k = k_values, MSE = NA, EDF = NA)
+
+# Fit models for each k and calculate MSE on test data
+for (k in k_values) {
+  # Train kNN model with the full training data
+  knn_model <- train(
+    X ~ Y,                    # Formula
+    data = train_data,         # Full training data
+    method = "knn",            # Specify kNN method
+    tuneGrid = expand.grid(k = k),  # Use specific k
+    trControl = trainControl(method = "none")  # No cross-validation
+  )
+  
+  # Predict on the test data
+  test_predictions <- predict(knn_model, newdata = test_data)
+  
+  # Calculate MSE on the test data
+  mse <- mean((test_predictions - test_data$Y)^2)
+  
+  # Store the results
+  results[results$k == k, "MSE"] <- mse
+  results[results$k == k, "EDF"] <- n_train / k  # Effective Degrees of Freedom
+}
+
+# Find the optimal k (the one with the lowest MSE)
+optimal_k_test <- results[which.min(results$MSE), "k"]
+optimal_mse_test <- results[which.min(results$MSE), "MSE"]
+optimal_edf_test <- results[which.min(results$MSE), "EDF"]
+
+# Print the results
+cat("Optimal k on Test Set:", optimal_k_test, "\n")
+cat("Corresponding EDF:", optimal_edf_test, "\n")
+cat("Test Set MSE:", optimal_mse_test, "\n")
+
+
+```
 
 :::
 
@@ -447,10 +610,55 @@ Plot both the cross-validation estimated and (true) error calculated from the te
 
 - Produce two plots: one with $k$ on the x-axis and one with *edf* on the x-axis.
 - Each plot should have two lines: one from part *a* and one from part *d* 
+
     
 ::: {.callout-note title="Solution"}
 
-Add solution here
+
+```{r}
+# Load necessary libraries
+library(ggplot2)
+
+# PART A: Results from cross-validation
+# Assuming you have already trained the kNN model and have 'knn_model' from part a
+# knn_model$results contains the cross-validation results
+
+# Create a data frame with k values, cross-validated RMSE, and MSE
+cv_results <- knn_model$results
+cv_results$MSE <- cv_results$RMSE^2  # Square RMSE to get MSE
+cv_results$EDF <- nrow(train_data) / cv_results$k  # Effective degrees of freedom
+
+# PART D: Test set results (from the loop you shared)
+test_results <- results  # Contains k, MSE, and EDF for the test set
+
+# Combine both results for plotting
+combined_results <- merge(cv_results, test_results, by = "k", suffixes = c("_cv", "_test"))
+
+# PLOT 1: MSE vs. k
+ggplot(combined_results, aes(x = k)) +
+  geom_line(aes(y = MSE_cv, color = "Cross-Validation MSE"), linewidth = 1) +
+  geom_line(aes(y = MSE_test, color = "Test Set MSE"), linewidth = 1, linetype = "dashed") +
+  geom_point(aes(y = MSE_cv), color = "orange", shape = 4, size = 3) +  # Cross for min CV MSE
+  geom_point(aes(y = MSE_test), color = "blue", shape = 4, size = 3) +  # Cross for min Test MSE
+  labs(title = "MSE vs. k", x = "k (Number of Neighbors)", y = "Mean Squared Error") +
+  scale_color_manual(values = c("Cross-Validation MSE" = "orange", "Test Set MSE" = "blue")) +
+  theme_minimal()
+```
+
+```{r}
+# PLOT 2: MSE vs. EDF (Effective Degrees of Freedom)
+ggplot(combined_results, aes(x = EDF_cv)) +
+  geom_line(aes(y = MSE_cv, color = "Cross-Validation MSE"), linewidth = 1) +
+  geom_line(aes(y = MSE_test, color = "Test Set MSE"), linewidth = 1, linetype = "dashed") +
+  geom_point(aes(y = MSE_cv), color = "orange", shape = 4, size = 3) +  # Cross for min CV MSE
+  geom_point(aes(y = MSE_test), color = "blue", shape = 4, size = 3) +  # Cross for min Test MSE
+  labs(title = "MSE vs. EDF", x = "Effective Degrees of Freedom (EDF)", y = "Mean Squared Error") +
+  scale_color_manual(values = c("Cross-Validation MSE" = "orange", "Test Set MSE" = "blue")) +
+  theme_minimal()
+
+
+
+```
 
 :::
     
