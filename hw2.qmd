@@ -46,7 +46,7 @@ f <- function(x) {
 
 Y_fun <- function(x){     # generate Y|X from N{f(x),sd}
   n = length(x)
-  f(x) + rnorm(n, mean=0, sd=sqrt(2.5))
+  f(x) + rnorm(n, mean=0, sd=2.5)
 }
 ```
 
@@ -177,8 +177,9 @@ CI_df <- data.frame(
   upper = CI[2, ]           # 97.5th percentile
 )
 
+data_sim$poly5_pred <- predict(fifth_poly, newdata = data_sim)
 # Plot with confidence intervals
-ggplot(data_sim, aes(x = X, y = Y)) +
+ggplot(data_sim, aes(x = X, y = y)) +
   geom_point() +
   geom_line(aes(y = poly5_pred, color = "Fifth_deg")) +
   geom_ribbon(data = CI_df, aes(x = X, ymin = lower, ymax = upper), alpha = 0.2) +
@@ -211,83 +212,6 @@ Use $10$-fold cross-validation to find the value of $k$ (i.e., neighborhood size
 ::: {.callout-note title="Solution"}
  Found k fold from cross valnotes but use knn_eval from supervised 2 notes
  
-```{r}
-# Restarting based on his notes: 
-#library(caret)
-
-
-# we will put each fold into this knn_eval function
-
-# k fold from cross val notes
-knn_eval <- function(kvalues, data_train, data_test){
-  # fit model and eval on training data
-  
-  # initialize the vectors for mse values and edf values
-  msevalues<-numeric(length(kvalues)) # empty vectors 
-  edfvalues<-numeric(length(kvalues))
-  # here is the for loop
-  for (i in 1:length(kvalues)){
-      knn = knn.reg(data_train[,'X', drop=FALSE],# is the training data, predictor
-      y = data_train$Y, # outcome
-      test = data_train[,'X', drop=FALSE], # testing data-required here
-      k = kvalues[i]) # for the ith k
-      r_test = data_test$Y - knn$pred # residuals on test data- observed-predicted
-      mse_test = mean(r_test^2) # test MSE
-      msevalues[[i]]=mse_test
-      # results
-      edf = nrow(data_train)/kvalues[i] # effective dof (edof)
-      #store result
-      edfvalues[[i]]=edf
-  } # ends the for loop
-  tibble(k = kvalues, edf = edfvalues, mse_test=msevalues)
-}
-
-
-#--------------------------------------------------------------
-
-# knn_eval from supervised 2 notes
-set.seed(211)
-n.folds = 10 # number of folds for cross-validation
-fold = sample(rep(1:n.folds, length=nrow(data_sim))) # from 1 to 10, decide the unique folds each will be in
-
-
-results = vector("list", n.folds) # a list of size ten
-#- Iterate over folds
-for(j in 1:n.folds){
-  #-- Set training/val data
-  val = which(fold == j) # indices of holdout/validation data
-  train = which(fold != j) # indices of fitting/training data
-  n.val = length(val) # number of observations in validation
-  #- fit and evaluate models
-  results[[j]] = knn_eval(3:40, # putting in k's being 3 through 40
-  data_train = data_sim[train,],
-  data_test =data_sim[val,]
-  ) %>%
-  mutate(fold = j, n.val) # add fold number and number in validation
-}
-RESULTS = bind_rows(results) #result for every fold for every model
-```
-
-```{r}
-# plot with $k$ on the x-axis and the estimated MSE on the y-axis
-# performance can vary, but around 6,7, and 8
-#make the folds a factor
-# Plot with k on the x-axis and the estimated MSE on the y-axis
-
-RESULTS$fold <- as.factor(RESULTS$fold)
-
-# Ensure the results object is a proper data frame
-RESULTS <- data.frame(RESULTS)
-
-mse_k<-RESULTS%>%group_by(k)%>%summarize(mse=mean(mse_test))
-ggplot(mse_k,aes(x = k, y = mse_test)) +
-  geom_line() +
-  geom_point() +
-  labs(title = "kNN Cross-Validation: k vs. Test MSE",
-       x = "k (Neighborhood size)",
-       y = "Mean Squared Error (MSE)") 
-
-```
 
 ```{r}
 # WORKING BETTER
@@ -324,8 +248,7 @@ knn_eval <- function(kvalues, data_train, data_test){
 # Set seed for reproducibility
 set.seed(221)
 
-# Simulate your data if not already available (X_fun and Y_fun are functions to generate data)
-# Replace this section with your actual data if necessary
+# Simulate data 
 x <- X_fun(100)  # Generate X data
 y <- Y_fun(x)    # Generate Y data
 data_sim <- data.frame(X = x, Y = y)  # Create a dataframe
@@ -492,19 +415,40 @@ Plot both the cross-validation estimated and (true) error calculated from the te
 
     
 ::: {.callout-note title="Solution"}
-
 ```{r}
+# make a new dataframe:
+# define kvals again
+k_values <- 3:40
+# the df
+combined_df<-data.frame(
+  # k vals
+  k=k_values,
+  # edf vals
+  edf=100/k_values,
+  mse_cv=mse_k$mse,
+  mse_test=test_results$mse_test)
 
-plot_parta<-ggplot(mse_k, aes(x = k, y = mse)) +
-  geom_line(color="blue") +
-  geom_point(color="blue")
-plot_parta+geom_line(data=test_results, aes(x=k, y=mse_test), color="red")+geom_point(data=test_results, color="red")
+```
+
+# RETRY PLOT 1:
+```{r}
+# Plot with k on the x-axis and the estimated MSE on the y-axis
+ggplot(combined_df, aes(x = k)) +
+  geom_line(aes(y=mse_cv, color="CV MSE")) +
+  geom_point(aes(y=mse_cv, color="CV MSE"))+
+  geom_line(aes(y=mse_test, color="Test MSE")) +
+  geom_point(aes(y=mse_test, color="TEST MSE"))+
+  scale_color_manual(name="Type",values=c("CV MSE"="blue","TEST MSE"="red"))
+  
 ```
 
 ```{r}
-plot_2<-ggplot(data = edf_results, aes(x = edf, y = mse))+geom_point(color="blue")+ geom_line(color="blue")
-plot_2+geom_line(data=test_results, aes(x=edf, y=mse_test), color="red")+geom_point(data=test_results, color="red")
-
+ggplot(combined_df, aes(x = edf)) +
+  geom_line(aes(y=mse_cv, color="CV MSE")) +
+  geom_point(aes(y=mse_cv, color="CV MSE"))+
+  geom_line(aes(y=mse_test, color="Test MSE")) +
+  geom_point(aes(y=mse_test, color="TEST MSE"))+
+  scale_color_manual(name="Type",values=c("CV MSE"="blue","TEST MSE"="red"))
 ```
 
 :::
@@ -515,10 +459,15 @@ Based on the plots from *e*, does it appear that cross-validation worked as inte
 
 ::: {.callout-note title="Solution"}
 
-Unfortunately, I know my plots above are incorrect, but hypothetically here is my logic. 
+Unfortunately, I believe the plots above are not correct, but here is the logic anyway. If cross-validation worked, the curves for both plots from cross-validation (blue) and the curve from the test set (red) should follow a similar trend. In both plots this is generally (although loosely) true. If both curves minimize around the same k value, then this means the cross-validation identified the k value that minimized the MSE, which then performed well on the test set as expected. This also seems to be loosely true in the above plots. 
+
+The sensitivity of the choice of k on the test MSE can be judged by how steeply the curve changes around the optimal k. A steeper curve indicates high sensitivity, while a flatter curve suggests that multiple values of 
+k would perform similarly well (low sensitivity).In our case I would say that the choice of k is sensitive but not extremely so as a few values around the optimal k would produce similar MSE values. 
+
 
 :::
 
-
+#Other notes to myself:
+Smaller choice of k means less points around to use so is highly sensitive, likely overfit and biased but low variance. Larger k means lots of points used so less sensitive, perhaps underfit, and low bias but higher variance as it not very specific. 
 
 
