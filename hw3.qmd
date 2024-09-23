@@ -39,7 +39,7 @@ library(glmnet)
 n_train =        # number of training obs
 n_test =         # number of test obs
 K =              # number of CV folds
-alpha =  1        # glmnet tuning alpha (1 = lasso (does var selection), 0 = ridge)
+alpha =          # glmnet tuning alpha (1 = lasso, 0 = ridge)
 M =              # number of simulations
 
 #-- Data Generating Function
@@ -63,20 +63,6 @@ for(m in 1:M) {
 # compare performance of the approaches / Statistical Test
 ```
 
-```yaml
-The cv.glmnet() function implements k-fold cross-validation.
-a. Behind the scenes, it first runs glmnet() on all the data which makes the lambda path and
-estimates coefficients (for the final model).
-b. Then in loops over the folds and returns:
-• lambda is the lambda path
-• cvm is the mean cross-validated performance metric. Use the type.measure= argument
-to control what is returned
-• cvsd, cvup, cvlo is the standard error and 1se values
-• lambda.min and lambda.1se are lambda values that gives the minimum cvm and
-largest value of lambda such that error is within 1 standard error of the minimum.
-
-```
-
 ## a. Code for the simulation and performance results
 
 ::: {.callout-note title="Solution"}
@@ -85,8 +71,8 @@ library(mlbench)
 library(glmnet)
 
 #-- Settings
-n_train = 250       # number of training obs
-n_test = 500         # number of test obs
+n_train = 200       # number of training obs
+n_test = 10000         # number of test obs, the more testing the more the optimal will converge to the true lambda 
 K =  10            # number of CV folds
 alpha = 1       # glmnet tuning alpha (1 = lasso (variable selection), 0 = ridge)
 M =  20            # number of simulations
@@ -96,27 +82,51 @@ getData <- function(n){
   mlbench.friedman1(n, sd=2) # data generating function
 }
 
+# do the folds for cv which happens in the cv.glmnet function
+folds=sample(rep(1:K, length=n_train))
+# vectors to store the mse results:
+# Initialize vectors to store MSE results
+mse_cvmin <- numeric(M)
+mse_1se <- numeric(M)
+
 #-- Simulations
-set.seed(211)
+set.seed(611)
 
 for(m in 1:M) {
 
 # 1. Generate Training Data
-  data_train<-makeX(getData(n_train)) # makeX makes the data a matrix format 
+  data_train<-getData(n_train) # makeX makes the data a matrix format 
+  x_train<-as.matrix(data_train$x)
+  y_train<-data_train$y
 # 2. Build Training Models using cross-validation, e.g., cv.glmnet()
-  train_model<-cv.glmnet()
+  train_model<-cv.glmnet(x_train, y_train, alpha=alpha, foldid=folds)
 # 3. get lambda that minimizes cv error and 1 SE rule
-  
+  lambda_cvmin<-train_model$lambda.min
+  lambda_1se<-train_model$lambda.1se
 # 4. Generate Test Data
   data_test<-getData(n_test)
+  x_test<-data_test$x
+  y_test<-data_test$y
 # 5. Predict y values for test data (for each model: min, 1SE)
-  
-# 6. Evaluate predictions
+  yhat_lasso_cvmin = predict(train_model, 
+                             newx = x_test, 
+                             s="lambda.min")
+  yhat_lasso_1se=predict(train_model, 
+                         newx=x_test, 
+                         s="lambda.1se")
+# 6. Evaluate predictions (calculate mse??)
+  mse_cvmin[m] <- mean((y_test - yhat_lasso_cvmin)^2)
+  mse_1se[m] <- mean((y_test - yhat_lasso_1se)^2)
 
 }
 
 #-- Compare
 # compare performance of the approaches / Statistical Test
+mean_cvmin<-mean(mse_cvmin)
+print(paste("lambda min is", mean_cvmin))
+mean_1se<-mean(mse_1se)
+print(paste("lambda 1 standard error",mean_1se))
+
 ```
 :::
 
@@ -125,7 +135,12 @@ for(m in 1:M) {
 Provide results and discussion of a hypothesis test comparing $\lambda_{\rm min}$ and $\lambda_{\rm 1SE}$.
 
 ::: {.callout-note title="Solution"}
-Add solution here
+```{r}
+t_test<-t.test(mse_cvmin,mse_1se, paired=T )
+t_test
+
+# this is the pvalue which is less than 0.05, so the means differ. The confidence interval is negative so that means that the mse_cvmin is the smaller value always. 
+```
 :::
 
 # Problem 2 Prediction Contest: Real Estate Pricing
@@ -143,9 +158,39 @@ Load the data and create necessary data structures for running *elastic net*.
 - Note: there are some categorical predictors so at the least you will have to convert those to something numeric (e.g., one-hot or dummy coding).
 
 ::: {.callout-note title="Solution"}
-Add solution here
+```{r}
+#read the data in:
+re_traindata<-read.csv("realestate_train.csv",header=T)
+re_testdata<-read.csv("realestate_test.csv",header=T)
+
+#combine them:
+re_data<-makeX(train=subset(re_traindata,select=-price),test=re_testdata)
+# get the categoricals to be factors?? use makeX since it does one hot encoding 
+re_data_train<-re_data$x
+re_data_test<-re_data$xtest
+# normalization to z scores (mean=0, stdv=1)
+re_stand_train <- scale(re_data_train)
+re_stand_test<-scale(re_data_test)
+
+#do vif to figure out which 
+
+# doing the data engineering makes the rmse smaller
+
+
+```
 :::
 
+
+# Notes to self:
+```yaml
+There are few ways to jointly optimize α and λ.
+1. Create a grid of α and λ values and fit models for every value. The problem is that the algorithm in
+glmnet() is optimized to search over a sequence of λ values in one pass. Also, due to the different
+penalties a reasonable λ sequence for a lasso penalty may not be reasonable for ridge penalty.
+2. Use one resampling pass to estimate α, then another to estimate λ given αˆ.
+3. The choice of α > 0 may not be very influential on performance, so may not have much practical need to
+optimize
+```
 ## b. Fit elastic net model
 
 Use an *elastic net* model to predict the `price` of the test data.
@@ -156,7 +201,37 @@ Use an *elastic net* model to predict the `price` of the test data.
 - Describe how you choose those tuning parameters
 
 ::: {.callout-note title="Solution"}
-Add solution here
+```{r}
+# I used the cv.lambda that the glmnet chose above that has the min mse in general
+# a list of alphas
+alphas<-c(0.1,0.2,0.25,0.3,0.4,0.5,0.6,0.7,0.75, 0.8,0.9)
+# number of folds
+numfolds=10
+fold = sample(rep(1:numfolds,length=nrow(re_stand_train)))
+# initialize empty dataframe that will have the alphas and associated rmse values
+df_a_rmse <- data.frame(alpha = alphas, rmse = rep(NA, length(alphas)))
+# go through and get fits and predictions
+for(i in length(alphas)){
+  #save the alpha used:
+  a <- alphas[i]
+  df_a_rmse$alpha[i]=a
+  #fit that model: 
+  fit_enet = cv.glmnet(re_stand_train,re_traindata$price , alpha=a, foldid=fold)
+  #get the predicted prices for that model (to be used in rmse calc)
+  predicted_price<-predict(fit_enet, re_stand_train, s = "lambda.min")
+  #here i want the associated rmse for the model
+  rmse_val <- sqrt(mean((re_traindata$price - predicted_price)^2))
+  #save it in the df
+  df_a_rmse$rmse[i] <- rmse_val
+}
+# find the min of that vector of rmse's and that associated alpha is the one you want to use
+min_a<-min(df_a_rmse$rmse)
+min_a
+# use just glmnet for the alpha that is best here
+fir_glmnet_enet<-glmnet(re_stand_train,re_traindata$price, alpha=min_a)
+# the prediction 
+yhat_enet = predict(fit_glmnet_enet, newx = re_stand_test, s="lambda.min")
+```
 :::
 
 ## c. Submit predictions
@@ -166,7 +241,9 @@ Submit a .csv file (ensure comma separated format) named `lastname_firstname.csv
 - You will receive credit for a proper submission; the top five scores will receive 2 bonus points.
 
 ::: {.callout-note title="Solution"}
-Add solution here
+```{r}
+write_csv()
+```
 :::
 
 ## d. Report anticpated performance
