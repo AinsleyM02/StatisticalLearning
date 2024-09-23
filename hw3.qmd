@@ -208,29 +208,38 @@ alphas<-c(0.1,0.2,0.25,0.3,0.4,0.5,0.6,0.7,0.75, 0.8,0.9)
 # number of folds
 numfolds=10
 fold = sample(rep(1:numfolds,length=nrow(re_stand_train)))
-# initialize empty dataframe that will have the alphas and associated rmse values
-df_a_rmse <- data.frame(alpha = alphas, rmse = rep(NA, length(alphas)))
+# initialize empty dataframe that will have the alphas and associated rmse and lambda values
+df_a_rmse <- data.frame(alpha = alphas, lambda = rep(NA, length(alphas)), rmse = rep(NA, length(alphas)))
 # go through and get fits and predictions
-for(i in length(alphas)){
+for (i in seq_along(alphas)){
   #save the alpha used:
   a <- alphas[i]
   df_a_rmse$alpha[i]=a
   #fit that model: 
   fit_enet = cv.glmnet(re_stand_train,re_traindata$price , alpha=a, foldid=fold)
+  #get the lambda min it chooses:
+  lambda_min <- fit_enet$lambda.min
   #get the predicted prices for that model (to be used in rmse calc)
   predicted_price<-predict(fit_enet, re_stand_train, s = "lambda.min")
   #here i want the associated rmse for the model
   rmse_val <- sqrt(mean((re_traindata$price - predicted_price)^2))
-  #save it in the df
+  #save rmse and lambda associated with each alpha in the df
   df_a_rmse$rmse[i] <- rmse_val
+  df_a_rmse$lambda[i]<-lambda_min
 }
-# find the min of that vector of rmse's and that associated alpha is the one you want to use
-min_a<-min(df_a_rmse$rmse)
-min_a
+# find the min of that vector of rmse's and that associated best alpha is the one you want to use
+min_a<-df_a_rmse$alpha[which.min(df_a_rmse$rmse)]
+#get the lambda associated with the min rmse
+lambda_best_a<-df_a_rmse$lambda[which.min(df_a_rmse$rmse)]
 # use just glmnet for the alpha that is best here
-fir_glmnet_enet<-glmnet(re_stand_train,re_traindata$price, alpha=min_a)
-# the prediction 
-yhat_enet = predict(fit_glmnet_enet, newx = re_stand_test, s="lambda.min")
+fit_glmnet_enet <- glmnet(re_stand_train, re_traindata$price, alpha = min_a)
+# the prediction: this does not work:
+yhat_enet <- predict(fit_glmnet_enet, newx = re_stand_test, s=lambda_best_a)
+
+#calc min rmse for the print statement:
+min_rmse_val<-min(df_a_rmse$rmse)
+# print the best alpha and lambda associated with the best rmse value:
+print(paste("The alpha associated with the model with the lowest RMSE value(",min_rmse_val, ") is: ",  min_a, " and the minimum lambda at that alpha found by cv.glmnet is ", lambda_best_a))
 ```
 :::
 
@@ -242,7 +251,23 @@ Submit a .csv file (ensure comma separated format) named `lastname_firstname.csv
 
 ::: {.callout-note title="Solution"}
 ```{r}
-write_csv()
+#used to remove if necessary when I messed up a bunch
+#file.remove("McLaughlin_Ainsley.csv")
+```
+
+```{r}
+library(readr)
+
+# Convert yhat_enet to a data frame and explicitly name the column as 'yhat'
+yhat_enet_df <- data.frame(yhat = as.vector(yhat_enet))
+
+# Write to CSV again
+write_csv(yhat_enet_df, "McLaughlin_Ainsley.csv")
+```
+
+```{r}
+# verify this is a dataframe with one column only
+#print(dim(yhat_enet_df))
 ```
 :::
 
@@ -251,5 +276,7 @@ write_csv()
 Report the anticipated performance of your method in terms of RMSE. We will see how close your performance assessment matches the actual value. 
 
 ::: {.callout-note title="Solution"}
-Add solution here
+```yaml
+I am not sure what he means here.
+```
 :::
