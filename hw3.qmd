@@ -139,7 +139,9 @@ Provide results and discussion of a hypothesis test comparing $\lambda_{\rm min}
 t_test<-t.test(mse_cvmin,mse_1se, paired=T )
 t_test
 
-# this is the pvalue which is less than 0.05, so the means differ. The confidence interval is negative so that means that the mse_cvmin is the smaller value always. 
+# this is the pvalue which is less than 0.05, so the means differ. The confidence interval is negative so that means that the mse_cvmin is the smaller value always.
+
+#Since the p value, which is 1.236e-08, is less than the common confidence level alpha of 0.05, we reject the null hypothesis and conclude that the mean 
 ```
 :::
 
@@ -202,6 +204,8 @@ Use an *elastic net* model to predict the `price` of the test data.
 
 ::: {.callout-note title="Solution"}
 ```{r}
+# set the seed?
+set.seed(123)
 # I used the cv.lambda that the glmnet chose above that has the min mse in general
 # a list of alphas
 alphas<-c(0.1,0.2,0.25,0.3,0.4,0.5,0.6,0.7,0.75, 0.8,0.9)
@@ -276,7 +280,11 @@ write_csv(yhat_enet_df, "McLaughlin_Ainsley.csv")
 Report the anticipated performance of your method in terms of RMSE. We will see how close your performance assessment matches the actual value. 
 
 ::: {.callout-note title="Solution"}
-```yaml
-I am not sure what he means here.
+```{r}
+# Get the min RMSE from the data frame
+anticipated_rmse <- min(df_a_rmse$rmse)
+
+# Report the anticipated performance
+print(paste("The anticipated RMSE for the elastic net model is:", anticipated_rmse))
 ```
 :::
