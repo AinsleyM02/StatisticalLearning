@@ -7,7 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 <meta name="author" content="Ainsley McLaughlin">
-<meta name="dcterms.date" content="2024-09-30">
+<meta name="dcterms.date" content="2024-10-01">
 
 <title>Homework #4: Trees and Random Forest</title>
 <style>
@@ -3264,7 +3264,7 @@ DS 6030 | Fall 2024 | University of Virginia
     <div>
     <div class="quarto-title-meta-heading">Published</div>
     <div class="quarto-title-meta-contents">
-      <p class="date">September 30, 2024</p>
+      <p class="date">October 1, 2024</p>
     </div>
   </div>
   
@@ -3368,7 +3368,32 @@ Solution
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p>Solution here</p>
+<div class="cell" data-layout-align="center">
+<div class="sourceCode cell-code" id="cb4"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>p_red <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="fl">0.2</span>, <span class="fl">0.25</span>, <span class="fl">0.3</span>, <span class="fl">0.4</span>, <span class="fl">0.4</span>, <span class="fl">0.45</span>, <span class="fl">0.7</span>, <span class="fl">0.85</span>, <span class="fl">0.9</span>, <span class="fl">0.9</span>)</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>class_r_g <span class="ot">&lt;-</span> <span class="fu">c</span>()  <span class="co"># Initialize an empty vector for the classifications</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="co">#loop thru p_red and classify as red or green for each prob</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (i <span class="cf">in</span> <span class="fu">seq_along</span>(p_red)) {</span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (p_red[i] <span class="sc">&gt;=</span> <span class="fl">0.5</span>) {</span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>    class_r_g[i] <span class="ot">&lt;-</span> <span class="st">&quot;r&quot;</span>  <span class="co"># If probability &gt;= 0.5, red</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>  } <span class="cf">else</span> {</span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>    class_r_g[i] <span class="ot">&lt;-</span> <span class="st">&quot;g&quot;</span>  <span class="co"># If probability &lt; 0.5, green</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a><span class="co">#most frequent class (majority vote)</span></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>classification_r_g <span class="ot">&lt;-</span> <span class="fu">names</span>(<span class="fu">which.max</span>(<span class="fu">table</span>(class_r_g)))</span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a><span class="co"># Output it</span></span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> (classification_r_g <span class="sc">==</span> <span class="st">&quot;g&quot;</span>) {</span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>  <span class="fu">print</span>(<span class="st">&quot;The classification is green&quot;</span>)</span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a>} <span class="cf">else</span> {</span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a>  <span class="fu">print</span>(<span class="st">&quot;The classification is red&quot;</span>)</span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a>}</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] &quot;The classification is green&quot;</code></pre>
+</div>
+</div>
 </div>
 </div>
 </section>
@@ -3385,7 +3410,20 @@ Solution
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p>Solution here</p>
+<div class="cell" data-layout-align="center">
+<div class="sourceCode cell-code" id="cb6"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Calculate the average probability</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>avg_pred <span class="ot">&lt;-</span> <span class="fu">mean</span>(p_red)</span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Classify based on the average probability</span></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> (avg_pred <span class="sc">&gt;=</span> <span class="fl">0.5</span>) {</span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">print</span>(<span class="st">&quot;The class is red&quot;</span>)</span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>} <span class="cf">else</span> {</span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">print</span>(<span class="st">&quot;The class is green&quot;</span>)</span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>}</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] &quot;The class is red&quot;</code></pre>
+</div>
+</div>
 </div>
 </div>
 </section>
@@ -3408,7 +3446,11 @@ Solution
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p>Solution here</p>
+<div class="cell" data-layout-align="center">
+<div class="sourceCode cell-code" id="cb8"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="co">#help(ranger) # brings up the R documentation on this</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>The parameters for the ranger :: range() function are:ranger( formula = NULL, data = NULL, num.trees = 500, mtry = NULL, importance = “none”, write.forest = TRUE, probability = FALSE, min.node.size = NULL, min.bucket = NULL, max.depth = NULL, replace = TRUE, sample.fraction = ifelse(replace, 1, 0.632), case.weights = NULL, class.weights = NULL, splitrule = NULL, num.random.splits = 1, alpha = 0.5, minprop = 0.1, split.select.weights = NULL, always.split.variables = NULL, respect.unordered.factors = NULL, scale.permutation.importance = FALSE, local.importance = FALSE, regularization.factor = 1, regularization.usedepth = FALSE, keep.inbag = FALSE, inbag = NULL, holdout = FALSE, quantreg = FALSE, time.interest = NULL, oob.error = TRUE, num.threads = NULL, save.memory = FALSE, verbose = TRUE, node.stats = FALSE, seed = NULL, dependent.variable.name = NULL, status.variable.name = NULL, classification = NULL, x = NULL, y = NULL, … )</p>
+<p>The important parameters to optimize will likely be: num.trees, mtry, importance, min.node.size, min.bucket, max.depth, sample.fraction, class.weights?, num.random.splits, num.threads?, save.memory?,</p>
 </div>
 </div>
 </section>
@@ -3425,7 +3467,25 @@ Solution
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p>Solution here</p>
+<pre><code>#import the data
+#install.packages(&quot;modeldata&quot;)
+library(modeldata)
+library(caret)
+data_a&lt;-data.frame(ames)
+
+#set seed
+set.seed(123)
+
+#build the tree
+rf_fit &lt;- train(
+    Sale_Price ~ .,
+    data = data_a,
+    method = &quot;ranger&quot;,
+    trControl = trainControl(method=&quot;cv&quot;, number = 10, allowParallel = TRUE, verbose = TRUE))
+
+#rmse
+rf_fit$results$RMSE
+</code></pre>
 </div>
 </div>
 </section>
@@ -3455,7 +3515,7 @@ Solution
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p>Solution here</p>
+
 </div>
 </div>
 </section>
