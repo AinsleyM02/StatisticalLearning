@@ -123,9 +123,9 @@ for(m in 1:M) {
 #-- Compare
 # compare performance of the approaches / Statistical Test
 mean_cvmin<-mean(mse_cvmin)
-print(paste("lambda min is", mean_cvmin))
+print(paste(" The mean lambda min is", mean_cvmin))
 mean_1se<-mean(mse_1se)
-print(paste("lambda 1 standard error",mean_1se))
+print(paste("The mean lambda 1 standard error",mean_1se))
 
 ```
 :::
@@ -139,9 +139,8 @@ Provide results and discussion of a hypothesis test comparing $\lambda_{\rm min}
 t_test<-t.test(mse_cvmin,mse_1se, paired=T )
 t_test
 
-# this is the pvalue which is less than 0.05, so the means differ. The confidence interval is negative so that means that the mse_cvmin is the smaller value always.
 
-#Since the p value, which is 1.236e-08, is less than the common confidence level alpha of 0.05, we reject the null hypothesis and conclude that the mean 
+#Since the p value, which is 1.236e-08, is less than the common confidence level alpha of 0.05, we reject the null hypothesis and conclude that the mse_cvmin and the  mse_1se differ from each other. Since the confidence interval limits are both negative values that means that mse_cvmin-mse_1se<0 which means mse_cvmin<mse_1se. We can conclude that on average the mean mse_cvmin is less than the mean mse_1se. 
 ```
 :::
 
@@ -245,6 +244,7 @@ min_rmse_val<-min(df_a_rmse$rmse)
 # print the best alpha and lambda associated with the best rmse value:
 print(paste("The alpha associated with the model with the lowest RMSE value(",min_rmse_val, ") is: ",  min_a, " and the minimum lambda at that alpha found by cv.glmnet is ", lambda_best_a))
 ```
+I used the alpha values above which was associated with the lowest rmse of the alpha values list I tried. I then chose the associated lambda value that the cv.glmnet produces using 10 fold cross validation. I used lambda.min as my choice instead of lambda.1se since lambda.min is the minimum lambda and we are choosing the model specifically so we don't necessarily want it to choose a simpler model with the lambda.1se. 
 :::
 
 ## c. Submit predictions
@@ -268,6 +268,9 @@ yhat_enet_df <- data.frame(yhat = as.vector(yhat_enet))
 # Write to CSV again
 write_csv(yhat_enet_df, "McLaughlin_Ainsley.csv")
 ```
+Click below to get the predictions:
+
+[Download predictions cvs](McLaughlin_Ainsley.csv)
 
 ```{r}
 # verify this is a dataframe with one column only

@@ -7,9 +7,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 <meta name="author" content="Ainsley McLaughlin">
-<meta name="dcterms.date" content="2024-09-24">
+<meta name="dcterms.date" content="2024-09-30">
 
-<title>Homework #3: Penalized Regression</title>
+<title>Homework #4: Trees and Random Forest</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -3225,20 +3225,17 @@ window.Quarto = {
     <h2 id="toc-title">Table of contents</h2>
    
   <ul>
-  <li><a href="#problem-1-optimal-tuning-parameters" id="toc-problem-1-optimal-tuning-parameters" class="nav-link active" data-scroll-target="#problem-1-optimal-tuning-parameters">Problem 1: Optimal Tuning Parameters</a>
+  <li><a href="#problem-1-tree-splitting-metrics-for-classification" id="toc-problem-1-tree-splitting-metrics-for-classification" class="nav-link active" data-scroll-target="#problem-1-tree-splitting-metrics-for-classification">Problem 1: Tree splitting metrics for classification</a></li>
+  <li><a href="#problem-2-combining-bootstrap-estimates" id="toc-problem-2-combining-bootstrap-estimates" class="nav-link" data-scroll-target="#problem-2-combining-bootstrap-estimates">Problem 2: Combining bootstrap estimates</a>
   <ul class="collapse">
-  <li><a href="#a.-code-for-the-simulation-and-performance-results" id="toc-a.-code-for-the-simulation-and-performance-results" class="nav-link" data-scroll-target="#a.-code-for-the-simulation-and-performance-results">a. Code for the simulation and performance results</a></li>
-  <li><a href="#b.-hypothesis-test" id="toc-b.-hypothesis-test" class="nav-link" data-scroll-target="#b.-hypothesis-test">b. Hypothesis test</a></li>
+  <li><a href="#a.-majority-vote" id="toc-a.-majority-vote" class="nav-link" data-scroll-target="#a.-majority-vote">a. Majority Vote</a></li>
+  <li><a href="#b.-average-probability" id="toc-b.-average-probability" class="nav-link" data-scroll-target="#b.-average-probability">b. Average Probability</a></li>
   </ul></li>
-  <li><a href="#problem-2-prediction-contest-real-estate-pricing" id="toc-problem-2-prediction-contest-real-estate-pricing" class="nav-link" data-scroll-target="#problem-2-prediction-contest-real-estate-pricing">Problem 2 Prediction Contest: Real Estate Pricing</a>
+  <li><a href="#problem-3-random-forest-tuning" id="toc-problem-3-random-forest-tuning" class="nav-link" data-scroll-target="#problem-3-random-forest-tuning">Problem 3: Random Forest Tuning</a>
   <ul class="collapse">
-  <li><a href="#a.-load-and-pre-process-data" id="toc-a.-load-and-pre-process-data" class="nav-link" data-scroll-target="#a.-load-and-pre-process-data">a. Load and pre-process data</a></li>
-  </ul></li>
-  <li><a href="#notes-to-self" id="toc-notes-to-self" class="nav-link" data-scroll-target="#notes-to-self">Notes to self:</a>
-  <ul class="collapse">
-  <li><a href="#b.-fit-elastic-net-model" id="toc-b.-fit-elastic-net-model" class="nav-link" data-scroll-target="#b.-fit-elastic-net-model">b. Fit elastic net model</a></li>
-  <li><a href="#c.-submit-predictions" id="toc-c.-submit-predictions" class="nav-link" data-scroll-target="#c.-submit-predictions">c. Submit predictions</a></li>
-  <li><a href="#d.-report-anticpated-performance" id="toc-d.-report-anticpated-performance" class="nav-link" data-scroll-target="#d.-report-anticpated-performance">d. Report anticpated performance</a></li>
+  <li><a href="#a.-random-forest-ranger-tuning-parameters" id="toc-a.-random-forest-ranger-tuning-parameters" class="nav-link" data-scroll-target="#a.-random-forest-ranger-tuning-parameters">a. Random forest (<code>ranger</code>) tuning parameters</a></li>
+  <li><a href="#b.-implement-random-forest" id="toc-b.-implement-random-forest" class="nav-link" data-scroll-target="#b.-implement-random-forest">b. Implement Random Forest</a></li>
+  <li><a href="#c.-random-forest-tuning" id="toc-c.-random-forest-tuning" class="nav-link" data-scroll-target="#c.-random-forest-tuning">c. Random Forest Tuning</a></li>
   </ul></li>
   </ul>
 </nav>
@@ -3250,7 +3247,7 @@ DS 6030 | Fall 2024 | University of Virginia
 
 <header id="title-block-header" class="quarto-title-block default">
 <div class="quarto-title">
-<h1 class="title">Homework #3: Penalized Regression</h1>
+<h1 class="title">Homework #4: Trees and Random Forest</h1>
 </div>
 
 
@@ -3267,7 +3264,7 @@ DS 6030 | Fall 2024 | University of Virginia
     <div>
     <div class="quarto-title-meta-heading">Published</div>
     <div class="quarto-title-meta-contents">
-      <p class="date">September 24, 2024</p>
+      <p class="date">September 30, 2024</p>
     </div>
   </div>
   
@@ -3279,63 +3276,88 @@ DS 6030 | Fall 2024 | University of Virginia
 </header>
 
 
+<div style="background-color:yellow; color:red; display: block; border-color: black; padding:1em">
+<p>This is an <strong>independent assignment</strong>. Do not discuss or work with classmates.</p>
+</div>
 <section id="required-r-packages-and-directories" class="level1 unnumbered unlisted">
 <h1 class="unnumbered unlisted">Required R packages and Directories</h1>
 <div class="cell" data-layout-align="center">
 <div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>data_dir <span class="ot">=</span> <span class="st">&#39;https://mdporter.github.io/teaching/data/&#39;</span> <span class="co"># data directory</span></span>
-<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(mlbench)</span>
-<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(glmnet)</span>
-<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(tidymodels)<span class="co"># for optional tidymodels solutions</span></span>
-<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(tidyverse) <span class="co"># functions for data manipulation  </span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(tidyverse)    <span class="co"># functions for data manipulation  </span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(ranger)       <span class="co"># fast random forest implementation</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(modeldata)    <span class="co"># for the ames housing data</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 </section>
-<section id="problem-1-optimal-tuning-parameters" class="level1">
-<h1>Problem 1: Optimal Tuning Parameters</h1>
-<p>In cross-validation, we discussed choosing the tuning parameter values that minimized the cross-validation error. Another approach, called the “one-standard error” rule [ISL pg 214, ESL pg 61], uses the values corresponding to the least complex model whose cv error is within one standard error of the best model. The goal of this assignment is to compare these two rules.</p>
-<p>Use simulated data from <code>mlbench.friedman1(n, sd=2)</code> in the <code>mlbench</code> R package to fit <em>lasso models</em>. The tuning parameter <span class="math inline">\(\lambda\)</span> (corresponding to the penalty on the coefficient magnitude) is the one we will focus one. Generate training data, use k-fold cross-validation to get <span class="math inline">\(\lambda_{\rm min}\)</span> and <span class="math inline">\(\lambda_{\rm 1SE}\)</span>, generate test data, make predictions for the test data, and compare performance of the two rules under a squared error loss using a hypothesis test.</p>
-<p>Choose reasonable values for:</p>
-<ul>
-<li>Number of cv folds (<span class="math inline">\(K\)</span>)
-<ul>
-<li>Note: you are free to use repeated CV, repeated hold-outs, or bootstrapping instead of plain cross-validation; just be sure to describe what do did so it will be easier to follow.</li>
-</ul></li>
-<li>Number of training and test observations</li>
-<li>Number of simulations</li>
-<li>If everyone uses different values, we will be able to see how the results change over the different settings.</li>
-<li>Don’t forget to make your results reproducible (e.g., set seed)</li>
-</ul>
-<p>This pseudo code (using k-fold cv) will get you started:</p>
-<div class="sourceCode" id="cb2"><pre class="sourceCode yaml code-with-copy"><code class="sourceCode yaml"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="at">library(mlbench)</span></span>
-<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="at">library(glmnet)</span></span>
+<section id="problem-1-tree-splitting-metrics-for-classification" class="level1">
+<h1>Problem 1: Tree splitting metrics for classification</h1>
+<p>Consider the Gini index, classification error, and entropy impurity measures in a simple classification setting with two classes.</p>
+<p>Create a single plot that displays each of these quantities as a function of <span class="math inline">\(p_m\)</span>, the estimated probability of an observation in node <span class="math inline">\(m\)</span> being from class 1. The x-axis should display <span class="math inline">\(p_m\)</span>, ranging from 0 to 1, and the y-axis should display the value of the Gini index, classification error, and entropy.</p>
+<p>Personal Notes: - Misclassification Error: This measures the proportion of observations that do not belong to the majority class in region Rm. It is minimized when all observations in a node belong to the same class - The Gini Index measures the likelihood of misclassifying a randomly chosen observation from the node. It is 0 when all observations in a node belong to the same class and reaches its maximum when class probabilities are uniform - Cross-Entropy/Deviance: This measures the amount of uncertainty in the node. It is minimized when one class probability is 1 (i.e., full certainty about class membership) and is maximized when class probabilities are evenly distributed. It is proportional to the negative of the multinomial log-likelihood (and hence deviance)</p>
+<div class="callout callout-style-default callout-note no-icon callout-titled" title="Solution">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Solution
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<div class="cell" data-layout-align="center">
+<div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Load necessary library</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(ggplot2)</span>
 <span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="co">#-- Settings</span></span>
-<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="at">n_train =</span><span class="co">        # number of training obs</span></span>
-<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="at">n_test =</span><span class="co">         # number of test obs</span></span>
-<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="at">K =</span><span class="co">              # number of CV folds</span></span>
-<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="at">alpha =</span><span class="co">          # glmnet tuning alpha (1 = lasso, 0 = ridge)</span></span>
-<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="at">M =</span><span class="co">              # number of simulations</span></span>
-<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a><span class="co">#-- Data Generating Function</span></span>
-<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a><span class="at">getData &lt;- function(n) mlbench.friedman1(n, sd=2)</span><span class="co"> # data generating function</span></span>
-<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a><span class="co">#-- Simulations</span></span>
-<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a><span class="at">set.seed(211)</span></span>
-<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a><span class="at">for(m in 1:M) {</span></span>
-<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a><span class="co"># 1. Generate Training Data</span></span>
-<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a><span class="co"># 2. Build Training Models using cross-validation, e.g., cv.glmnet()</span></span>
-<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a><span class="co"># 3. get lambda that minimizes cv error and 1 SE rule</span></span>
-<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a><span class="co"># 4. Generate Test Data</span></span>
-<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a><span class="co"># 5. Predict y values for test data (for each model: min, 1SE)</span></span>
-<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a><span class="co"># 6. Evaluate predictions</span></span>
-<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a><span class="at">}</span></span>
-<span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a><span class="co">#-- Compare</span></span>
-<span id="cb2-29"><a href="#cb2-29" aria-hidden="true" tabindex="-1"></a><span class="co"># compare performance of the approaches / Statistical Test</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<section id="a.-code-for-the-simulation-and-performance-results" class="level2">
-<h2 class="anchored" data-anchor-id="a.-code-for-the-simulation-and-performance-results">a. Code for the simulation and performance results</h2>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Define a sequence of p_m values ranging from 0 to 1</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>p_m <span class="ot">&lt;-</span> <span class="fu">seq</span>(<span class="dv">0</span>, <span class="dv">1</span>, <span class="at">length.out =</span> <span class="dv">100</span>)</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="co"># Calculate the Gini index, classification error, and entropy</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>gini <span class="ot">&lt;-</span> <span class="dv">2</span> <span class="sc">*</span> p_m <span class="sc">*</span> (<span class="dv">1</span> <span class="sc">-</span> p_m)</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>classification_error <span class="ot">&lt;-</span> <span class="dv">1</span> <span class="sc">-</span> <span class="fu">pmax</span>(p_m, <span class="dv">1</span> <span class="sc">-</span> p_m)</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>entropy <span class="ot">&lt;-</span> <span class="sc">-</span>p_m <span class="sc">*</span> <span class="fu">log2</span>(p_m) <span class="sc">-</span> (<span class="dv">1</span> <span class="sc">-</span> p_m) <span class="sc">*</span> <span class="fu">log2</span>(<span class="dv">1</span> <span class="sc">-</span> p_m)</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a><span class="co"># Handle cases where p_m is 0 or 1 to avoid NaN values in entropy</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>entropy[<span class="fu">is.na</span>(entropy)] <span class="ot">&lt;-</span> <span class="dv">0</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a><span class="co"># Create a data frame for plotting</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>impurity_data <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>  <span class="at">p_m =</span> <span class="fu">rep</span>(p_m, <span class="dv">3</span>),</span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>  <span class="at">impurity =</span> <span class="fu">c</span>(gini, classification_error, entropy),</span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>  <span class="at">measure =</span> <span class="fu">factor</span>(<span class="fu">rep</span>(<span class="fu">c</span>(<span class="st">&quot;Gini&quot;</span>, <span class="st">&quot;Classification Error&quot;</span>, <span class="st">&quot;Entropy&quot;</span>), <span class="at">each =</span> <span class="dv">100</span>))</span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a><span class="co"># Plot using ggplot2</span></span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(impurity_data, <span class="fu">aes</span>(<span class="at">x =</span> p_m, <span class="at">y =</span> impurity, <span class="at">color =</span> measure)) <span class="sc">+</span></span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>(<span class="at">size =</span> <span class="dv">1</span>) <span class="sc">+</span></span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(</span>
+<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a>    <span class="at">title =</span> <span class="st">&quot;Impurity Measures vs. Probability (p_m)&quot;</span>,</span>
+<span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a>    <span class="at">x =</span> <span class="st">&quot;p_m (Probability of being in class 1)&quot;</span>,</span>
+<span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a>    <span class="at">y =</span> <span class="st">&quot;Impurity&quot;</span>,</span>
+<span id="cb2-29"><a href="#cb2-29" aria-hidden="true" tabindex="-1"></a>    <span class="at">color =</span> <span class="st">&quot;Impurity Measure&quot;</span></span>
+<span id="cb2-30"><a href="#cb2-30" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb2-31"><a href="#cb2-31" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>() <span class="sc">+</span></span>
+<span id="cb2-32"><a href="#cb2-32" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(<span class="at">legend.position =</span> <span class="st">&quot;top&quot;</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning: Using `size` aesthetic for lines was deprecated in ggplot2 3.4.0.
+ℹ Please use `linewidth` instead.</code></pre>
+</div>
+<div class="cell-output-display">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img role="img" src="data:image/png;base64,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" class="img-fluid quarto-figure quarto-figure-center figure-img" style="width:70.0%"></p>
+</figure>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<section id="problem-2-combining-bootstrap-estimates" class="level1">
+<h1>Problem 2: Combining bootstrap estimates</h1>
+<p>Suppose we produce ten bootstrapped samples from a data set containing red and green classes. We then apply a classification tree to each bootstrapped sample and, for a specific value of <span class="math inline">\(X\)</span>, produce the following 10 estimates of <span class="math inline">\(\Pr(\text{Class is Red} \mid X=x)\)</span>: <span class="math inline">\(\{0.2, 0.25, 0.3, 0.4, 0.4, 0.45, 0.7, 0.85, 0.9, 0.9\}\)</span>.</p>
+<section id="a.-majority-vote" class="level2">
+<h2 class="anchored" data-anchor-id="a.-majority-vote">a. Majority Vote</h2>
+<p>ISLR 8.2 describes the <em>majority vote</em> approach for making a hard classification from a set of bagged classifiers. What is the final classification for this example using majority voting?</p>
+<p>Notes: . For a given test observation, we can record the class predicted by each of the B trees, and take a majority vote: the overall prediction is the most commonly occurring majority vote class among the B predictions.</p>
 <div class="callout callout-style-default callout-note no-icon callout-titled" title="Solution">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
@@ -3346,79 +3368,13 @@ Solution
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<div class="cell" data-layout-align="center">
-<div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(mlbench)</span>
-<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(glmnet)</span>
-<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="co">#-- Settings</span></span>
-<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>n_train <span class="ot">=</span> <span class="dv">200</span>       <span class="co"># number of training obs</span></span>
-<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>n_test <span class="ot">=</span> <span class="dv">10000</span>         <span class="co"># number of test obs, the more testing the more the optimal will converge to the true lambda </span></span>
-<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>K <span class="ot">=</span>  <span class="dv">10</span>            <span class="co"># number of CV folds</span></span>
-<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>alpha <span class="ot">=</span> <span class="dv">1</span>       <span class="co"># glmnet tuning alpha (1 = lasso (variable selection), 0 = ridge)</span></span>
-<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>M <span class="ot">=</span>  <span class="dv">20</span>            <span class="co"># number of simulations</span></span>
-<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a><span class="co">#-- Data Generating Function</span></span>
-<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>getData <span class="ot">&lt;-</span> <span class="cf">function</span>(n){</span>
-<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mlbench.friedman1</span>(n, <span class="at">sd=</span><span class="dv">2</span>) <span class="co"># data generating function</span></span>
-<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>}</span>
-<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a><span class="co"># do the folds for cv which happens in the cv.glmnet function</span></span>
-<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>folds<span class="ot">=</span><span class="fu">sample</span>(<span class="fu">rep</span>(<span class="dv">1</span><span class="sc">:</span>K, <span class="at">length=</span>n_train))</span>
-<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a><span class="co"># vectors to store the mse results:</span></span>
-<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a><span class="co"># Initialize vectors to store MSE results</span></span>
-<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a>mse_cvmin <span class="ot">&lt;-</span> <span class="fu">numeric</span>(M)</span>
-<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a>mse_1se <span class="ot">&lt;-</span> <span class="fu">numeric</span>(M)</span>
-<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-23"><a href="#cb3-23" aria-hidden="true" tabindex="-1"></a><span class="co">#-- Simulations</span></span>
-<span id="cb3-24"><a href="#cb3-24" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">611</span>)</span>
-<span id="cb3-25"><a href="#cb3-25" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-26"><a href="#cb3-26" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span>(m <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span>M) {</span>
-<span id="cb3-27"><a href="#cb3-27" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-28"><a href="#cb3-28" aria-hidden="true" tabindex="-1"></a><span class="co"># 1. Generate Training Data</span></span>
-<span id="cb3-29"><a href="#cb3-29" aria-hidden="true" tabindex="-1"></a>  data_train<span class="ot">&lt;-</span><span class="fu">getData</span>(n_train) <span class="co"># makeX makes the data a matrix format </span></span>
-<span id="cb3-30"><a href="#cb3-30" aria-hidden="true" tabindex="-1"></a>  x_train<span class="ot">&lt;-</span><span class="fu">as.matrix</span>(data_train<span class="sc">$</span>x)</span>
-<span id="cb3-31"><a href="#cb3-31" aria-hidden="true" tabindex="-1"></a>  y_train<span class="ot">&lt;-</span>data_train<span class="sc">$</span>y</span>
-<span id="cb3-32"><a href="#cb3-32" aria-hidden="true" tabindex="-1"></a><span class="co"># 2. Build Training Models using cross-validation, e.g., cv.glmnet()</span></span>
-<span id="cb3-33"><a href="#cb3-33" aria-hidden="true" tabindex="-1"></a>  train_model<span class="ot">&lt;-</span><span class="fu">cv.glmnet</span>(x_train, y_train, <span class="at">alpha=</span>alpha, <span class="at">foldid=</span>folds)</span>
-<span id="cb3-34"><a href="#cb3-34" aria-hidden="true" tabindex="-1"></a><span class="co"># 3. get lambda that minimizes cv error and 1 SE rule</span></span>
-<span id="cb3-35"><a href="#cb3-35" aria-hidden="true" tabindex="-1"></a>  lambda_cvmin<span class="ot">&lt;-</span>train_model<span class="sc">$</span>lambda.min</span>
-<span id="cb3-36"><a href="#cb3-36" aria-hidden="true" tabindex="-1"></a>  lambda_1se<span class="ot">&lt;-</span>train_model<span class="sc">$</span>lambda<span class="fl">.1</span>se</span>
-<span id="cb3-37"><a href="#cb3-37" aria-hidden="true" tabindex="-1"></a><span class="co"># 4. Generate Test Data</span></span>
-<span id="cb3-38"><a href="#cb3-38" aria-hidden="true" tabindex="-1"></a>  data_test<span class="ot">&lt;-</span><span class="fu">getData</span>(n_test)</span>
-<span id="cb3-39"><a href="#cb3-39" aria-hidden="true" tabindex="-1"></a>  x_test<span class="ot">&lt;-</span>data_test<span class="sc">$</span>x</span>
-<span id="cb3-40"><a href="#cb3-40" aria-hidden="true" tabindex="-1"></a>  y_test<span class="ot">&lt;-</span>data_test<span class="sc">$</span>y</span>
-<span id="cb3-41"><a href="#cb3-41" aria-hidden="true" tabindex="-1"></a><span class="co"># 5. Predict y values for test data (for each model: min, 1SE)</span></span>
-<span id="cb3-42"><a href="#cb3-42" aria-hidden="true" tabindex="-1"></a>  yhat_lasso_cvmin <span class="ot">=</span> <span class="fu">predict</span>(train_model, </span>
-<span id="cb3-43"><a href="#cb3-43" aria-hidden="true" tabindex="-1"></a>                             <span class="at">newx =</span> x_test, </span>
-<span id="cb3-44"><a href="#cb3-44" aria-hidden="true" tabindex="-1"></a>                             <span class="at">s=</span><span class="st">&quot;lambda.min&quot;</span>)</span>
-<span id="cb3-45"><a href="#cb3-45" aria-hidden="true" tabindex="-1"></a>  yhat_lasso_1se<span class="ot">=</span><span class="fu">predict</span>(train_model, </span>
-<span id="cb3-46"><a href="#cb3-46" aria-hidden="true" tabindex="-1"></a>                         <span class="at">newx=</span>x_test, </span>
-<span id="cb3-47"><a href="#cb3-47" aria-hidden="true" tabindex="-1"></a>                         <span class="at">s=</span><span class="st">&quot;lambda.1se&quot;</span>)</span>
-<span id="cb3-48"><a href="#cb3-48" aria-hidden="true" tabindex="-1"></a><span class="co"># 6. Evaluate predictions (calculate mse??)</span></span>
-<span id="cb3-49"><a href="#cb3-49" aria-hidden="true" tabindex="-1"></a>  mse_cvmin[m] <span class="ot">&lt;-</span> <span class="fu">mean</span>((y_test <span class="sc">-</span> yhat_lasso_cvmin)<span class="sc">^</span><span class="dv">2</span>)</span>
-<span id="cb3-50"><a href="#cb3-50" aria-hidden="true" tabindex="-1"></a>  mse_1se[m] <span class="ot">&lt;-</span> <span class="fu">mean</span>((y_test <span class="sc">-</span> yhat_lasso_1se)<span class="sc">^</span><span class="dv">2</span>)</span>
-<span id="cb3-51"><a href="#cb3-51" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-52"><a href="#cb3-52" aria-hidden="true" tabindex="-1"></a>}</span>
-<span id="cb3-53"><a href="#cb3-53" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-54"><a href="#cb3-54" aria-hidden="true" tabindex="-1"></a><span class="co">#-- Compare</span></span>
-<span id="cb3-55"><a href="#cb3-55" aria-hidden="true" tabindex="-1"></a><span class="co"># compare performance of the approaches / Statistical Test</span></span>
-<span id="cb3-56"><a href="#cb3-56" aria-hidden="true" tabindex="-1"></a>mean_cvmin<span class="ot">&lt;-</span><span class="fu">mean</span>(mse_cvmin)</span>
-<span id="cb3-57"><a href="#cb3-57" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(<span class="fu">paste</span>(<span class="st">&quot; The mean lambda min is&quot;</span>, mean_cvmin))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output cell-output-stdout">
-<pre><code>[1] &quot; The mean lambda min is 10.235285280303&quot;</code></pre>
-</div>
-<div class="sourceCode cell-code" id="cb5"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>mean_1se<span class="ot">&lt;-</span><span class="fu">mean</span>(mse_1se)</span>
-<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(<span class="fu">paste</span>(<span class="st">&quot;The mean lambda 1 standard error&quot;</span>,mean_1se))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output cell-output-stdout">
-<pre><code>[1] &quot;The mean lambda 1 standard error 11.1083297740106&quot;</code></pre>
-</div>
-</div>
+<p>Solution here</p>
 </div>
 </div>
 </section>
-<section id="b.-hypothesis-test" class="level2">
-<h2 class="anchored" data-anchor-id="b.-hypothesis-test">b. Hypothesis test</h2>
-<p>Provide results and discussion of a hypothesis test comparing <span class="math inline">\(\lambda_{\rm min}\)</span> and <span class="math inline">\(\lambda_{\rm 1SE}\)</span>.</p>
+<section id="b.-average-probability" class="level2">
+<h2 class="anchored" data-anchor-id="b.-average-probability">b. Average Probability</h2>
+<p>An alternative is to base the final classification on the average probability. What is the final classification for this example using average probability?</p>
 <div class="callout callout-style-default callout-note no-icon callout-titled" title="Solution">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
@@ -3429,38 +3385,65 @@ Solution
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<div class="cell" data-layout-align="center">
-<div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>t_test<span class="ot">&lt;-</span><span class="fu">t.test</span>(mse_cvmin,mse_1se, <span class="at">paired=</span>T )</span>
-<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>t_test</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output cell-output-stdout">
-<pre><code>
-    Paired t-test
-
-data:  mse_cvmin and mse_1se
-t = -8, df = 19, p-value = 1e-07
-alternative hypothesis: true mean difference is not equal to 0
-95 percent confidence interval:
- -1.099 -0.647
-sample estimates:
-mean difference 
-         -0.873 </code></pre>
-</div>
-<div class="sourceCode cell-code" id="cb9"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="co">#Since the p value, which is 1.236e-08, is less than the common confidence level alpha of 0.05, we reject the null hypothesis and conclude that the mse_cvmin and the  mse_1se differ from each other. Since the confidence interval limits are both negative values that means that mse_cvmin-mse_1se&lt;0 which means mse_cvmin&lt;mse_1se. We can conclude that on average the mean mse_cvmin is less than the mean mse_1se. </span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-</div>
+<p>Solution here</p>
 </div>
 </div>
 </section>
 </section>
-<section id="problem-2-prediction-contest-real-estate-pricing" class="level1">
-<h1>Problem 2 Prediction Contest: Real Estate Pricing</h1>
-<p>This problem uses the <a href="https://mdporter.github.io/teaching/data//realestate-train.csv">realestate-train</a> and <a href="https://mdporter.github.io/teaching/data//realestate-test.csv">realestate-test</a> (click on links for data).</p>
-<p>The goal of this contest is to predict sale price (in thousands) (<code>price</code> column) using an <em>elastic net</em> model. Evaluation of the test data will be based on the root mean squared error <span class="math inline">\({\rm RMSE}= \sqrt{\frac{1}{m}\sum_i (y_i - \hat{y}_i)^2}\)</span> for the <span class="math inline">\(m\)</span> test set observations.</p>
-<section id="a.-load-and-pre-process-data" class="level2">
-<h2 class="anchored" data-anchor-id="a.-load-and-pre-process-data">a. Load and pre-process data</h2>
-<p>Load the data and create necessary data structures for running <em>elastic net</em>.</p>
+<section id="problem-3-random-forest-tuning" class="level1">
+<h1>Problem 3: Random Forest Tuning</h1>
+<p>Random forest has several tuning parameters that you will explore in this problem. We will use the <code>ames</code> housing data from the <code>modeldata</code> R package.</p>
+<p>There are several R packages for Random Forest. The <code>ranger::ranger()</code> function is much faster than <code>randomForest::randomForest()</code> so we will use this one.</p>
+<section id="a.-random-forest-ranger-tuning-parameters" class="level2">
+<h2 class="anchored" data-anchor-id="a.-random-forest-ranger-tuning-parameters">a. Random forest (<code>ranger</code>) tuning parameters</h2>
+<p>List all of the random forest tuning parameters in the <code>ranger::ranger()</code> function. You don’t need to list the parameters related to computation, special models (e.g., survival, maxstat), or anything that won’t impact the predictive performance.</p>
+<p>Indicate the tuning parameters you think will be most important to optimize?</p>
+<div class="callout callout-style-default callout-note no-icon callout-titled" title="Solution">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Solution
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>Solution here</p>
+</div>
+</div>
+</section>
+<section id="b.-implement-random-forest" class="level2">
+<h2 class="anchored" data-anchor-id="b.-implement-random-forest">b. Implement Random Forest</h2>
+<p>Use a random forest model to predict the sales price, <code>Sale_Price</code>. Use the default parameters and report the 10-fold cross-validation RMSE (square root of mean squared error).</p>
+<div class="callout callout-style-default callout-note no-icon callout-titled" title="Solution">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Solution
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>Solution here</p>
+</div>
+</div>
+</section>
+<section id="c.-random-forest-tuning" class="level2">
+<h2 class="anchored" data-anchor-id="c.-random-forest-tuning">c. Random Forest Tuning</h2>
+<p>Now we will vary the tuning parameters of <code>mtry</code> and <code>min.bucket</code> to see what effect they have on performance.</p>
 <ul>
-<li>You are free to use any data transformation or feature engineering</li>
-<li>Note: there are some categorical predictors so at the least you will have to convert those to something numeric (e.g., one-hot or dummy coding).</li>
+<li>Use a range of reasonable <code>mtry</code> and <code>min.bucket</code> values.
+<ul>
+<li>The valid <code>mtry</code> values are <span class="math inline">\(\{1,2, \ldots, p\}\)</span> where <span class="math inline">\(p\)</span> is the number of predictor variables. However the default value of <code>mtry = sqrt(p) =</code> 8 is usually close to optimal, so you may want to focus your search around those values.</li>
+<li>The default <code>min.bucket=1</code> will grow deep trees. This will usually work best if there are enough trees. But try some values larger and see how it impacts predictive performance.</li>
+<li>Set <code>num.trees=1000</code>, which is larger than the default of 500.</li>
+</ul></li>
+<li>Use 5 times repeated out-of-bag (OOB) to assess performance. That is, run random forest 5 times for each tuning set, calculate the OOB MSE each time and use the average for the MSE associated with the tuning parameters.</li>
+<li>Use a single plot to show the average MSE as a function of <code>mtry</code> and <code>min.bucket</code>.</li>
+<li>Report the best tuning parameter combination.</li>
+<li>Note: random forest is a stochastic model; it will be different every time it runs due to the bootstrap sampling and random selection of features to consider for splitting. Set the random seed to control the uncertainty associated with the stochasticity.</li>
+<li>Hint: If you use the <code>ranger</code> package, the <code>prediction.error</code> element in the output is the OOB MSE.</li>
 </ul>
 <div class="callout callout-style-default callout-note no-icon callout-titled" title="Solution">
 <div class="callout-header d-flex align-content-center">
@@ -3472,166 +3455,7 @@ Solution
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<div class="cell" data-layout-align="center">
-<div class="sourceCode cell-code" id="cb10"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="co">#read the data in:</span></span>
-<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>re_traindata<span class="ot">&lt;-</span><span class="fu">read.csv</span>(<span class="st">&quot;realestate_train.csv&quot;</span>,<span class="at">header=</span>T)</span>
-<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>re_testdata<span class="ot">&lt;-</span><span class="fu">read.csv</span>(<span class="st">&quot;realestate_test.csv&quot;</span>,<span class="at">header=</span>T)</span>
-<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a><span class="co">#combine them:</span></span>
-<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a>re_data<span class="ot">&lt;-</span><span class="fu">makeX</span>(<span class="at">train=</span><span class="fu">subset</span>(re_traindata,<span class="at">select=</span><span class="sc">-</span>price),<span class="at">test=</span>re_testdata)</span>
-<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a><span class="co"># get the categoricals to be factors?? use makeX since it does one hot encoding </span></span>
-<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a>re_data_train<span class="ot">&lt;-</span>re_data<span class="sc">$</span>x</span>
-<span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a>re_data_test<span class="ot">&lt;-</span>re_data<span class="sc">$</span>xtest</span>
-<span id="cb10-10"><a href="#cb10-10" aria-hidden="true" tabindex="-1"></a><span class="co"># normalization to z scores (mean=0, stdv=1)</span></span>
-<span id="cb10-11"><a href="#cb10-11" aria-hidden="true" tabindex="-1"></a>re_stand_train <span class="ot">&lt;-</span> <span class="fu">scale</span>(re_data_train)</span>
-<span id="cb10-12"><a href="#cb10-12" aria-hidden="true" tabindex="-1"></a>re_stand_test<span class="ot">&lt;-</span><span class="fu">scale</span>(re_data_test)</span>
-<span id="cb10-13"><a href="#cb10-13" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb10-14"><a href="#cb10-14" aria-hidden="true" tabindex="-1"></a><span class="co">#do vif to figure out which </span></span>
-<span id="cb10-15"><a href="#cb10-15" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb10-16"><a href="#cb10-16" aria-hidden="true" tabindex="-1"></a><span class="co"># doing the data engineering makes the rmse smaller</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-</div>
-</div>
-</div>
-</section>
-</section>
-<section id="notes-to-self" class="level1">
-<h1>Notes to self:</h1>
-<div class="sourceCode" id="cb11"><pre class="sourceCode yaml code-with-copy"><code class="sourceCode yaml"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="at">There are few ways to jointly optimize α and λ.</span></span>
-<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a><span class="at">1. Create a grid of α and λ values and fit models for every value. The problem is that the algorithm in</span></span>
-<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a><span class="at">glmnet() is optimized to search over a sequence of λ values in one pass. Also, due to the different</span></span>
-<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a><span class="at">penalties a reasonable λ sequence for a lasso penalty may not be reasonable for ridge penalty.</span></span>
-<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a><span class="at">2. Use one resampling pass to estimate α, then another to estimate λ given αˆ.</span></span>
-<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a><span class="at">3. The choice of α &gt; 0 may not be very influential on performance, so may not have much practical need to</span></span>
-<span id="cb11-7"><a href="#cb11-7" aria-hidden="true" tabindex="-1"></a><span class="at">optimize</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<section id="b.-fit-elastic-net-model" class="level2">
-<h2 class="anchored" data-anchor-id="b.-fit-elastic-net-model">b. Fit elastic net model</h2>
-<p>Use an <em>elastic net</em> model to predict the <code>price</code> of the test data.</p>
-<ul>
-<li>You are free to use any data transformation or feature engineering</li>
-<li>You are free to use any tuning parameters</li>
-<li>Report the <span class="math inline">\(\alpha\)</span> and <span class="math inline">\(\lambda\)</span> parameters you used to make your final predictions.</li>
-<li>Describe how you choose those tuning parameters</li>
-</ul>
-<div class="callout callout-style-default callout-note no-icon callout-titled" title="Solution">
-<div class="callout-header d-flex align-content-center">
-<div class="callout-icon-container">
-<i class="callout-icon no-icon"></i>
-</div>
-<div class="callout-title-container flex-fill">
-Solution
-</div>
-</div>
-<div class="callout-body-container callout-body">
-<div class="cell" data-layout-align="center">
-<div class="sourceCode cell-code" id="cb12"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="co"># set the seed?</span></span>
-<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">123</span>)</span>
-<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a><span class="co"># I used the cv.lambda that the glmnet chose above that has the min mse in general</span></span>
-<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a><span class="co"># a list of alphas</span></span>
-<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a>alphas<span class="ot">&lt;-</span><span class="fu">c</span>(<span class="fl">0.1</span>,<span class="fl">0.2</span>,<span class="fl">0.25</span>,<span class="fl">0.3</span>,<span class="fl">0.4</span>,<span class="fl">0.5</span>,<span class="fl">0.6</span>,<span class="fl">0.7</span>,<span class="fl">0.75</span>, <span class="fl">0.8</span>,<span class="fl">0.9</span>)</span>
-<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a><span class="co"># number of folds</span></span>
-<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a>numfolds<span class="ot">=</span><span class="dv">10</span></span>
-<span id="cb12-8"><a href="#cb12-8" aria-hidden="true" tabindex="-1"></a>fold <span class="ot">=</span> <span class="fu">sample</span>(<span class="fu">rep</span>(<span class="dv">1</span><span class="sc">:</span>numfolds,<span class="at">length=</span><span class="fu">nrow</span>(re_stand_train)))</span>
-<span id="cb12-9"><a href="#cb12-9" aria-hidden="true" tabindex="-1"></a><span class="co"># initialize empty dataframe that will have the alphas and associated rmse and lambda values</span></span>
-<span id="cb12-10"><a href="#cb12-10" aria-hidden="true" tabindex="-1"></a>df_a_rmse <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(<span class="at">alpha =</span> alphas, <span class="at">lambda =</span> <span class="fu">rep</span>(<span class="cn">NA</span>, <span class="fu">length</span>(alphas)), <span class="at">rmse =</span> <span class="fu">rep</span>(<span class="cn">NA</span>, <span class="fu">length</span>(alphas)))</span>
-<span id="cb12-11"><a href="#cb12-11" aria-hidden="true" tabindex="-1"></a><span class="co"># go through and get fits and predictions</span></span>
-<span id="cb12-12"><a href="#cb12-12" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (i <span class="cf">in</span> <span class="fu">seq_along</span>(alphas)){</span>
-<span id="cb12-13"><a href="#cb12-13" aria-hidden="true" tabindex="-1"></a>  <span class="co">#save the alpha used:</span></span>
-<span id="cb12-14"><a href="#cb12-14" aria-hidden="true" tabindex="-1"></a>  a <span class="ot">&lt;-</span> alphas[i]</span>
-<span id="cb12-15"><a href="#cb12-15" aria-hidden="true" tabindex="-1"></a>  df_a_rmse<span class="sc">$</span>alpha[i]<span class="ot">=</span>a</span>
-<span id="cb12-16"><a href="#cb12-16" aria-hidden="true" tabindex="-1"></a>  <span class="co">#fit that model: </span></span>
-<span id="cb12-17"><a href="#cb12-17" aria-hidden="true" tabindex="-1"></a>  fit_enet <span class="ot">=</span> <span class="fu">cv.glmnet</span>(re_stand_train,re_traindata<span class="sc">$</span>price , <span class="at">alpha=</span>a, <span class="at">foldid=</span>fold)</span>
-<span id="cb12-18"><a href="#cb12-18" aria-hidden="true" tabindex="-1"></a>  <span class="co">#get the lambda min it chooses:</span></span>
-<span id="cb12-19"><a href="#cb12-19" aria-hidden="true" tabindex="-1"></a>  lambda_min <span class="ot">&lt;-</span> fit_enet<span class="sc">$</span>lambda.min</span>
-<span id="cb12-20"><a href="#cb12-20" aria-hidden="true" tabindex="-1"></a>  <span class="co">#get the predicted prices for that model (to be used in rmse calc)</span></span>
-<span id="cb12-21"><a href="#cb12-21" aria-hidden="true" tabindex="-1"></a>  predicted_price<span class="ot">&lt;-</span><span class="fu">predict</span>(fit_enet, re_stand_train, <span class="at">s =</span> <span class="st">&quot;lambda.min&quot;</span>)</span>
-<span id="cb12-22"><a href="#cb12-22" aria-hidden="true" tabindex="-1"></a>  <span class="co">#here i want the associated rmse for the model</span></span>
-<span id="cb12-23"><a href="#cb12-23" aria-hidden="true" tabindex="-1"></a>  rmse_val <span class="ot">&lt;-</span> <span class="fu">sqrt</span>(<span class="fu">mean</span>((re_traindata<span class="sc">$</span>price <span class="sc">-</span> predicted_price)<span class="sc">^</span><span class="dv">2</span>))</span>
-<span id="cb12-24"><a href="#cb12-24" aria-hidden="true" tabindex="-1"></a>  <span class="co">#save rmse and lambda associated with each alpha in the df</span></span>
-<span id="cb12-25"><a href="#cb12-25" aria-hidden="true" tabindex="-1"></a>  df_a_rmse<span class="sc">$</span>rmse[i] <span class="ot">&lt;-</span> rmse_val</span>
-<span id="cb12-26"><a href="#cb12-26" aria-hidden="true" tabindex="-1"></a>  df_a_rmse<span class="sc">$</span>lambda[i]<span class="ot">&lt;-</span>lambda_min</span>
-<span id="cb12-27"><a href="#cb12-27" aria-hidden="true" tabindex="-1"></a>}</span>
-<span id="cb12-28"><a href="#cb12-28" aria-hidden="true" tabindex="-1"></a><span class="co"># find the min of that vector of rmse&#39;s and that associated best alpha is the one you want to use</span></span>
-<span id="cb12-29"><a href="#cb12-29" aria-hidden="true" tabindex="-1"></a>min_a<span class="ot">&lt;-</span>df_a_rmse<span class="sc">$</span>alpha[<span class="fu">which.min</span>(df_a_rmse<span class="sc">$</span>rmse)]</span>
-<span id="cb12-30"><a href="#cb12-30" aria-hidden="true" tabindex="-1"></a><span class="co">#get the lambda associated with the min rmse</span></span>
-<span id="cb12-31"><a href="#cb12-31" aria-hidden="true" tabindex="-1"></a>lambda_best_a<span class="ot">&lt;-</span>df_a_rmse<span class="sc">$</span>lambda[<span class="fu">which.min</span>(df_a_rmse<span class="sc">$</span>rmse)]</span>
-<span id="cb12-32"><a href="#cb12-32" aria-hidden="true" tabindex="-1"></a><span class="co"># use just glmnet for the alpha that is best here</span></span>
-<span id="cb12-33"><a href="#cb12-33" aria-hidden="true" tabindex="-1"></a>fit_glmnet_enet <span class="ot">&lt;-</span> <span class="fu">glmnet</span>(re_stand_train, re_traindata<span class="sc">$</span>price, <span class="at">alpha =</span> min_a)</span>
-<span id="cb12-34"><a href="#cb12-34" aria-hidden="true" tabindex="-1"></a><span class="co"># the prediction: this does not work:</span></span>
-<span id="cb12-35"><a href="#cb12-35" aria-hidden="true" tabindex="-1"></a>yhat_enet <span class="ot">&lt;-</span> <span class="fu">predict</span>(fit_glmnet_enet, <span class="at">newx =</span> re_stand_test, <span class="at">s=</span>lambda_best_a)</span>
-<span id="cb12-36"><a href="#cb12-36" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb12-37"><a href="#cb12-37" aria-hidden="true" tabindex="-1"></a><span class="co">#calc min rmse for the print statement:</span></span>
-<span id="cb12-38"><a href="#cb12-38" aria-hidden="true" tabindex="-1"></a>min_rmse_val<span class="ot">&lt;-</span><span class="fu">min</span>(df_a_rmse<span class="sc">$</span>rmse)</span>
-<span id="cb12-39"><a href="#cb12-39" aria-hidden="true" tabindex="-1"></a><span class="co"># print the best alpha and lambda associated with the best rmse value:</span></span>
-<span id="cb12-40"><a href="#cb12-40" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(<span class="fu">paste</span>(<span class="st">&quot;The alpha associated with the model with the lowest RMSE value(&quot;</span>,min_rmse_val, <span class="st">&quot;) is: &quot;</span>,  min_a, <span class="st">&quot; and the minimum lambda at that alpha found by cv.glmnet is &quot;</span>, lambda_best_a))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output cell-output-stdout">
-<pre><code>[1] &quot;The alpha associated with the model with the lowest RMSE value( 38.6537807695069 ) is:  0.1  and the minimum lambda at that alpha found by cv.glmnet is  1.39882513084673&quot;</code></pre>
-</div>
-</div>
-<p>I used the alpha values above which was associated with the lowest rmse of the alpha values list I tried. I then chose the associated lambda value that the cv.glmnet produces using 10 fold cross validation. I used lambda.min as my choice instead of lambda.1se since lambda.min is the minimum lambda and we are choosing the model specifically so we don’t necessarily want it to choose a simpler model with the lambda.1se.</p>
-</div>
-</div>
-</section>
-<section id="c.-submit-predictions" class="level2">
-<h2 class="anchored" data-anchor-id="c.-submit-predictions">c. Submit predictions</h2>
-<p>Submit a .csv file (ensure comma separated format) named <code>lastname_firstname.csv</code> that includes your predictions in a column named <em>yhat</em>. We will use automated evaluation, so the format must be exact.</p>
-<ul>
-<li>You will receive credit for a proper submission; the top five scores will receive 2 bonus points.</li>
-</ul>
-<div class="callout callout-style-default callout-note no-icon callout-titled" title="Solution">
-<div class="callout-header d-flex align-content-center">
-<div class="callout-icon-container">
-<i class="callout-icon no-icon"></i>
-</div>
-<div class="callout-title-container flex-fill">
-Solution
-</div>
-</div>
-<div class="callout-body-container callout-body">
-<div class="cell" data-layout-align="center">
-<div class="sourceCode cell-code" id="cb14"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="co">#used to remove if necessary when I messed up a bunch</span></span>
-<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a><span class="co">#file.remove(&quot;McLaughlin_Ainsley.csv&quot;)</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-</div>
-<div class="cell" data-layout-align="center">
-<div class="sourceCode cell-code" id="cb15"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(readr)</span>
-<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a><span class="co"># Convert yhat_enet to a data frame and explicitly name the column as &#39;yhat&#39;</span></span>
-<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a>yhat_enet_df <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(<span class="at">yhat =</span> <span class="fu">as.vector</span>(yhat_enet))</span>
-<span id="cb15-5"><a href="#cb15-5" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-6"><a href="#cb15-6" aria-hidden="true" tabindex="-1"></a><span class="co"># Write to CSV again</span></span>
-<span id="cb15-7"><a href="#cb15-7" aria-hidden="true" tabindex="-1"></a><span class="fu">write_csv</span>(yhat_enet_df, <span class="st">&quot;McLaughlin_Ainsley.csv&quot;</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-</div>
-<p>Click below to get the predictions:</p>
-<p><a href="McLaughlin_Ainsley.csv">Download predictions cvs</a></p>
-<div class="cell" data-layout-align="center">
-<div class="sourceCode cell-code" id="cb16"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="co"># verify this is a dataframe with one column only</span></span>
-<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a><span class="co">#print(dim(yhat_enet_df))</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-</div>
-</div>
-</div>
-</section>
-<section id="d.-report-anticpated-performance" class="level2">
-<h2 class="anchored" data-anchor-id="d.-report-anticpated-performance">d. Report anticpated performance</h2>
-<p>Report the anticipated performance of your method in terms of RMSE. We will see how close your performance assessment matches the actual value.</p>
-<div class="callout callout-style-default callout-note no-icon callout-titled" title="Solution">
-<div class="callout-header d-flex align-content-center">
-<div class="callout-icon-container">
-<i class="callout-icon no-icon"></i>
-</div>
-<div class="callout-title-container flex-fill">
-Solution
-</div>
-</div>
-<div class="callout-body-container callout-body">
-<div class="cell" data-layout-align="center">
-<div class="sourceCode cell-code" id="cb17"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Get the min RMSE from the data frame</span></span>
-<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a>anticipated_rmse <span class="ot">&lt;-</span> <span class="fu">min</span>(df_a_rmse<span class="sc">$</span>rmse)</span>
-<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb17-4"><a href="#cb17-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Report the anticipated performance</span></span>
-<span id="cb17-5"><a href="#cb17-5" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(<span class="fu">paste</span>(<span class="st">&quot;The anticipated RMSE for the elastic net model is:&quot;</span>, anticipated_rmse))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output cell-output-stdout">
-<pre><code>[1] &quot;The anticipated RMSE for the elastic net model is: 38.6537807695069&quot;</code></pre>
-</div>
-</div>
+<p>Solution here</p>
 </div>
 </div>
 </section>
