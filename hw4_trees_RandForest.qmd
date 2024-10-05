@@ -272,10 +272,10 @@ for (j in 1:n.folds) {
 }
 
 # Calculate the average RMSE across all folds
-cv_rmse <- mean(rmse_vector)
+cv_rmse <- round(mean(rmse_vector),2)
 
 # Output the average RMSE
-print(cv_rmse)
+print(paste("The rmse is",cv_rmse))
 
 ```
 :::
