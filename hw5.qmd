@@ -38,7 +38,13 @@ These problems use the [linkage-train](`r file.path(dir_data, "linkage_train.csv
 ## Load Crime Linkage Data
 
 ::: {.callout-note title="Solution"}
-Add solution here
+```{r}
+#load the data
+cld_train<-read.csv("hw5_linkage_train.csv", header=T)
+cld_test<-read.csv("hw5_linkage_test.csv", header=T)
+
+head(cld_test)
+```
 :::
 
 # Problem 1: Penalized Regression for Crime Linkage
