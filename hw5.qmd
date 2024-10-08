@@ -44,6 +44,7 @@ cld_train<-read.csv("hw5_linkage_train.csv", header=T)
 cld_test<-read.csv("hw5_linkage_test.csv", header=T)
 
 head(cld_test)
+
 ```
 :::
 
@@ -58,7 +59,88 @@ Use an elastic net penalty (including lasso and ridge) (your choice).
 - Report the estimated coefficients.
 
 ::: {.callout-note title="Solution"}
-Add solution here
+```{r}
+#scale the data, it is already dummy encoded, eg no categoricals with labels
+cld_train_s<-data.frame((cld_train)) # this has a y
+cld_test_s<-data.frame((cld_test)) # this has no y
+
+```
+
+
+```{r}
+# import 
+library(glmnet)
+# Set the seed for reproducibility
+set.seed(123)
+
+# A list of alphas to search over
+alphas <- seq(0, 1, by = 0.05)
+
+# Number of folds for cross-validation
+numfolds <- 10
+
+# Create fold IDs for cross-validation
+fold <- sample(rep(1:numfolds, length = nrow(cld_train_s)))
+
+# Initialize an empty dataframe to store the alphas, lambda, and RMSE values
+df_a_rmse <- data.frame(alpha = alphas, lambda = rep(NA, length(alphas)), rmse = rep(NA, length(alphas)))
+
+# Loop through each alpha and fit the model for each one
+for (i in seq_along(alphas)) {
+  a <- alphas[i]
+  df_a_rmse$alpha[i] <- a
+  
+  # Fit the elastic net model with cross-validation for this alpha
+  fit_enet <- cv.glmnet(as.matrix(cld_train_s[ , -9]),  # Use only predictors (exclude 'y')
+                        cld_train_s$y, 
+                        alpha = a, 
+                        foldid = fold)
+  
+  # Get the lambda that minimizes the mean squared error
+  lambda_min <- fit_enet$lambda.min
+  
+  # Get predictions for this model using the lambda.min
+  predicted_y <- predict(fit_enet, newx = as.matrix(cld_train_s[ ,-which(names(cld_train_s) == "y")]), s = "lambda.min")
+  
+  # Calculate RMSE for this alpha
+  rmse_val <- sqrt(mean((cld_train_s$y - predicted_y)^2))
+  
+  # Save RMSE and lambda for this alpha
+  df_a_rmse$rmse[i] <- rmse_val
+  df_a_rmse$lambda[i] <- lambda_min
+}
+
+# Find the alpha with the minimum RMSE
+min_a <- df_a_rmse$alpha[which.min(df_a_rmse$rmse)]
+
+# Get the lambda associated with the minimum RMSE
+lambda_best_a <- df_a_rmse$lambda[which.min(df_a_rmse$rmse)]
+
+# Refit the model using the best alpha and lambda
+fit_glmnet_enet <- glmnet(as.matrix(cld_train_s[, -which(names(cld_train_s) == "y")]), 
+                          cld_train_s$y, 
+                          alpha = min_a, 
+                          lambda = lambda_best_a)
+
+# Make predictions on the train data (unconvential, but per instructions) using the best alpha and lambda
+yhat_enet_linear <- predict(fit_glmnet_enet, newx = as.matrix(cld_train_s[,-9]), s = lambda_best_a)
+
+# Get the minimum RMSE from the training phase
+min_rmse_val <- min(df_a_rmse$rmse)
+
+# Print the best alpha and lambda associated with the lowest RMSE
+print(paste("The alpha associated with the model with the lowest RMSE value (", min_rmse_val, ") is: ", min_a, 
+            " and the minimum lambda at that alpha found by cv.glmnet is ", lambda_best_a))
+
+
+```
+
+```{r}
+# Print the coefficients for the final model
+coef(fit_glmnet_enet)
+
+
+```
 :::
 
 
@@ -66,24 +148,119 @@ Add solution here
 
 Use an elastic net penalty (including lasso and ridge) (your choice). 
 
-- Report the value of $\alpha \in [0, 1]$ used. 
-- Report the value of $\lambda$ used.
+- Report the value of $\alpha \in [0, 1]$ used. # could pick arbitrarily
+- Report the value of $\lambda$ used. # could pick arbitrarily
 - Report the estimated coefficients.
 
+Notes: Logistic regression uses log loss instead of rmse to evaluate the best alpha
+
 ::: {.callout-note title="Solution"}
-Add solution here
+```{r}
+# Load necessary library
+library(glmnet)
+
+# Set the seed for reproducibility
+set.seed(123)
+
+# A list of alphas to search over
+alphas <- seq(0, 1, by = 0.05)
+
+# Number of folds for cross-validation
+numfolds <- 10
+
+# Create fold IDs for cross-validation
+fold <- sample(rep(1:numfolds, length = nrow(cld_train)))
+
+# Initialize an empty dataframe to store the alphas, lambda, and log loss values
+df_a_logloss <- data.frame(alpha = alphas, lambda = rep(NA, length(alphas)), log_loss = rep(NA, length(alphas)))
+
+# Loop through each alpha and fit the model for each one
+for (i in seq_along(alphas)) {
+  a <- alphas[i]
+  df_a_logloss$alpha[i] <- a
+  
+  # Fit the logistic elastic net model with cross-validation for this alpha
+  fit_enet <- cv.glmnet(as.matrix(cld_train[, -which(names(cld_train) == "y")]), 
+                        cld_train$y, 
+                        alpha = a, 
+                        foldid = fold, 
+                        family = "binomial")
+  
+  # Get the lambda that minimizes the log loss
+  lambda_min <- fit_enet$lambda.min
+  
+  # Get predictions (probabilities) for this model using the lambda.min
+  predicted_probs <- predict(fit_enet, newx = as.matrix(cld_train[, -which(names(cld_train) == "y")]), s = "lambda.min", type = "response")
+  
+  # Calculate log loss for the model
+  log_loss_val <- -mean(cld_train$y * log(predicted_probs) + (1 - cld_train$y) * log(1 - predicted_probs))
+  
+  # Save log loss and lambda for this alpha
+  df_a_logloss$log_loss[i] <- log_loss_val
+  df_a_logloss$lambda[i] <- lambda_min
+}
+
+# Find the alpha with the minimum log loss
+min_a <- df_a_logloss$alpha[which.min(df_a_logloss$log_loss)]
+
+# Get the lambda associated with the minimum log loss
+lambda_best_a <- df_a_logloss$lambda[which.min(df_a_logloss$log_loss)]
+
+# Refit the model using the best alpha and lambda
+fit_glmnet_enet <- glmnet(as.matrix(cld_train[, -which(names(cld_train) == "y")]), cld_train$y, alpha = min_a, lambda = lambda_best_a, family = "binomial")
+
+# Get the estimated coefficients
+estimated_coefficients <- coef(fit_glmnet_enet, s = lambda_best_a)
+
+# Make predictions on the train data (unconvential, but per instruction)
+yhat_probs_logistic <- predict(fit_glmnet_enet, newx = as.matrix(cld_train_s[,-9]), s = lambda_best_a, type = "response")
+
+# Print the best alpha, lambda, and estimated coefficients
+print(paste("The alpha associated with the model with the lowest log loss is: ", min_a))
+print(paste("The minimum lambda at that alpha is: ", lambda_best_a))
+print("Estimated coefficients:")
+print(estimated_coefficients)
+
+```
 :::
 
 # Problem 2: Random Forest for Crime Linkage
 
-Fit a random forest model to predict crime linkage. 
+Fit a random forest model to predict crime linkage.
 
-- Report the loss function (or splitting rule) used. 
+Notes:
+1.5.4 in the trees
+4.2-4.4 helpful for random forest tuning and variable importance
+prob modeling 3.4 for binary classification loss functions
+
+- Report the loss function (or splitting rule) used. # pick arbitrarily
 - Report any non-default tuning parameters.
 - Report the variable importance (indicate which importance method was used). 
 
 ::: {.callout-note title="Solution"}
-Add solution here
+```{r}
+help(ranger)
+```
+
+```{r}
+# make y a factor for gini (loss function)
+# or can use the brier score default (loss function) 
+library(ranger)
+library(modeldata)
+
+# Fit the random forest model using ranger on the training data
+rf_model <- ranger(y ~ .-y, data = cld_train_s, 
+                     num.trees = 10, mtry = 3, 
+                     importance = 'none')
+  
+# Make predictions on the training set also per the instructions-not typical, usually do it on the test set
+y_hat_rforest <- predict(rf_model, cld_train_s[,-9])$predictions
+
+  
+
+
+
+```
 :::
 
 # Problem 3: ROC Curves
@@ -96,7 +273,78 @@ Also report the AUC (area under the ROC curve) for each model. Again, use the *t
 - Note: you should be weary of being asked to evaluation predictive performance from the same data used to estimate the tuning and model parameters. The next problem will walk you through a more proper way of evaluating predictive performance with resampling. 
 
 ::: {.callout-note title="Solution"}
-Add solution here
+```{r}
+# in the classification notes, pg 22 or pg 15, is looking at gamma not predictions, so swap that out
+# can use that new things
+# put sensititivty or specificity on the x axis
+# yardstick with, the default 
+
+# can try using as.vector around the predicts
+
+test_perf =
+tibble(
+truth = Default$y[test.ind] %>% factor(levels=c(1,0)),
+gamma_hat
+)
+
+library(yardstick) # for evaluation functions
+#: The yardstick package requires the categorical outcome be
+# a factor with 1st level the outcome of interest.
+test_perf =
+tibble(
+  truth = as.factor(cld_train_s$y), 
+  yhat_enet_linear, 
+  yhat_probs_logistic,
+  y_hat_rforest 
+)
+#: ROC plots
+ROC =
+test_perf %>%
+yardstick::roc_curve(truth,yhat_enet_linear, 
+  yhat_probs_logistic,
+  y_hat_rforest )
+
+```
+```{r}
+# Load necessary libraries
+library(yardstick)  # For evaluation functions
+library(ggplot2)    # For plotting
+library(dplyr)      # For data manipulation
+library(tidyr)      # For pivot_longer
+
+# Ensure 'truth' is a binary factor with levels 0 and 1
+test_perf <- tibble(
+  truth = factor(cld_train_s$y, levels = c(0, 1)),  # Ensure this is binary (0 and 1)
+  linear = as.numeric(yhat_enet_linear),       # Continuous predictions from linear model
+  logistic = as.numeric(yhat_probs_logistic),  # Probabilities from logistic regression
+  random_forest = as.numeric(y_hat_rforest)    # Probabilities from random forest
+)
+
+# Compute ROC curves for each model separately
+roc_linear <- roc_curve(test_perf, truth, linear)
+roc_logistic <- roc_curve(test_perf, truth, logistic)
+roc_rf <- roc_curve(test_perf, truth, random_forest)
+
+# Add a 'model' label to each ROC curve
+roc_linear <- roc_linear %>% mutate(model = "Linear")
+roc_logistic <- roc_logistic %>% mutate(model = "Logistic")
+roc_rf <- roc_rf %>% mutate(model = "Random Forest")
+
+# Combine the ROC data from all models
+roc_combined <- bind_rows(roc_linear, roc_logistic, roc_rf)
+
+# Plot the combined ROC curves using ggplot
+ggplot(roc_combined, aes(x = 1 - specificity, y = sensitivity, color = model)) +
+  geom_path(size = 1.2) +
+  geom_abline(lty = 2, color = "gray") +  # Reference line for random guessing
+  labs(title = "ROC Curves for Linear, Logistic, and Random Forest Models",
+       x = "1 - Specificity",
+       y = "Sensitivity") +
+  theme_minimal()
+
+
+```
+
 :::
 
 
@@ -116,7 +364,111 @@ Recreate the ROC curve from the penalized logistic regression (logreg) and rando
 - Note: by estimating $\lambda$ each iteration, we are incorporating the uncertainty present in estimating that tuning parameter. 
     
 ::: {.callout-note title="Solution"} 
-Add solution here
+```{r}
+# Load necessary libraries
+library(glmnet)         # Penalized logistic regression
+library(ranger)         # Random forest
+library(yardstick)      # For ROC and AUC calculations
+library(ggplot2)        # For plotting
+library(dplyr)          # For data manipulation
+library(purrr)          # For repeated holdouts
+
+# Set parameters
+set.seed(123)           # For reproducibility
+alpha <- 0.75           # Elastic net alpha parameter for logistic regression
+mtry_rf <- 2            # Random forest mtry parameter
+num_trees_rf <- 1000    # Number of trees in random forest
+n_iterations <- 25      # Number of iterations
+holdout_size <- 500     # Number of hold-out observations per iteration
+
+# Initialize vectors to store AUCs for both models
+auc_logreg <- vector("numeric", n_iterations)
+auc_rf <- vector("numeric", n_iterations)
+
+# Initialize lists to store ROC curve data
+roc_logreg_list <- list()
+roc_rf_list <- list()
+
+# Repeat the process 25 times
+for (i in 1:n_iterations) {
+  
+  # Step i: Split data into training and hold-out sets
+  holdout_idx <- sample(1:nrow(cld_train_s), holdout_size)
+  holdout_data <- cld_train_s[holdout_idx, ]
+  training_data <- cld_train_s[-holdout_idx, ]
+  
+  # Step ii: Logistic regression (penalized logreg with alpha = 0.75)
+  X_train <- as.matrix(training_data[, -which(names(training_data) == "y")])
+  y_train <- training_data$y
+  
+  # Perform 10-fold CV to estimate lambda for logistic regression
+  cv_logreg <- cv.glmnet(X_train, y_train, alpha = alpha, family = "binomial", nfolds = 10)
+  best_lambda <- cv_logreg$lambda.min  # Best lambda from cross-validation
+  
+  # Step iii: Predict the holdout observations using penalized logreg
+  X_holdout <- as.matrix(holdout_data[, -which(names(holdout_data) == "y")])
+  y_holdout <- holdout_data$y
+  yhat_logreg <- predict(cv_logreg, newx = X_holdout, s = best_lambda, type = "response")
+  
+  # Step ii: Random forest (fixed parameters)
+  rf_model <- ranger(
+    formula = y ~ ., 
+    data = training_data, 
+    num.trees = num_trees_rf, 
+    mtry = mtry_rf, 
+    probability = TRUE  # Predict class probabilities
+  )
+  
+  # Step iii: Predict the holdout observations using random forest
+  yhat_rf <- predict(rf_model, data = holdout_data)$predictions[, 2]  # Prob of class 1
+  
+  # Step v: Calculate AUC for both models
+  auc_logreg[i] <- roc_auc_vec(as.factor(y_holdout), yhat_logreg)
+  auc_rf[i] <- roc_auc_vec(as.factor(y_holdout), yhat_rf)
+  
+  # Step vi: Store ROC curve data for plotting
+  roc_logreg_list[[i]] <- roc_curve(as.factor(y_holdout), yhat_logreg)
+  roc_rf_list[[i]] <- roc_curve(as.factor(y_holdout), yhat_rf)
+}
+
+# Calculate mean and standard error for AUCs
+mean_auc_logreg <- mean(auc_logreg)
+se_auc_logreg <- sd(auc_logreg) / sqrt(n_iterations)
+
+mean_auc_rf <- mean(auc_rf)
+se_auc_rf <- sd(auc_rf) / sqrt(n_iterations)
+
+# Print the results
+print(paste("Mean AUC for LogReg:", mean_auc_logreg))
+print(paste("Standard Error for LogReg:", se_auc_logreg))
+print(paste("Mean AUC for RF:", mean_auc_rf))
+print(paste("Standard Error for RF:", se_auc_rf))
+
+# Step 4: Combine all ROC curve data into one dataframe
+roc_logreg_data <- bind_rows(roc_logreg_list, .id = "iteration") %>% mutate(model = "LogReg")
+roc_rf_data <- bind_rows(roc_rf_list, .id = "iteration") %>% mutate(model = "RandomForest")
+
+# Step 5: Plot ROC curves for both models
+
+# Plot ROC curves for Logistic Regression
+ggplot(roc_logreg_data, aes(x = 1 - specificity, y = sensitivity, group = iteration)) +
+  geom_path(alpha = 0.4, color = "blue") +
+  geom_abline(lty = 2, color = "gray") +
+  labs(title = "ROC Curves for Penalized Logistic Regression (25 iterations)",
+       x = "1 - Specificity",
+       y = "Sensitivity") +
+  theme_minimal()
+
+# Plot ROC curves for Random Forest
+ggplot(roc_rf_data, aes(x = 1 - specificity, y = sensitivity, group = iteration)) +
+  geom_path(alpha = 0.4, color = "red") +
+  geom_abline(lty = 2, color = "gray") +
+  labs(title = "ROC Curves for Random Forest (25 iterations)",
+       x = "1 - Specificity",
+       y = "Sensitivity") +
+  theme_minimal()
+
+```
 :::
 
 # Problem 4: Contest
