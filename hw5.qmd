@@ -312,9 +312,11 @@ library(ggplot2)    # For plotting
 library(dplyr)      # For data manipulation
 library(tidyr)      # For pivot_longer
 
+# tell the outcome of interest in the model and the evaluation
+
 # Ensure 'truth' is a binary factor with levels 0 and 1
 test_perf <- tibble(
-  truth = factor(cld_train_s$y, levels = c(0, 1)),  # Ensure this is binary (0 and 1)
+  truth = factor(cld_train_s$y, levels = c(1,0)),  # Ensure this is binary (0 and 1)
   linear = as.numeric(yhat_enet_linear),       # Continuous predictions from linear model
   logistic = as.numeric(yhat_probs_logistic),  # Probabilities from logistic regression
   random_forest = as.numeric(y_hat_rforest)    # Probabilities from random forest
@@ -408,7 +410,7 @@ for (i in 1:n_iterations) {
   # Step iii: Predict the holdout observations using penalized logreg
   X_holdout <- as.matrix(holdout_data[, -which(names(holdout_data) == "y")])
   y_holdout <- holdout_data$y
-  yhat_logreg <- predict(cv_logreg, newx = X_holdout, s = best_lambda, type = "response")
+  yhat_logreg <- predict(cv_logreg, newx = X_holdout, s = best_lambda, type = "response")[,1]
   
   # Step ii: Random forest (fixed parameters)
   rf_model <- ranger(
@@ -423,8 +425,10 @@ for (i in 1:n_iterations) {
   yhat_rf <- predict(rf_model, data = holdout_data)$predictions[, 2]  # Prob of class 1
   
   # Step v: Calculate AUC for both models
-  auc_logreg[i] <- roc_auc_vec(as.factor(y_holdout), yhat_logreg)
+  auc_logreg[i] <- roc_auc_vec(as.factor(y_holdout), yhat_logreg) # make a vector as well
   auc_rf[i] <- roc_auc_vec(as.factor(y_holdout), yhat_rf)
+  
+  # make a dataframe/ tible as above and specify which columns from it to pass in below
   
   # Step vi: Store ROC curve data for plotting
   roc_logreg_list[[i]] <- roc_curve(as.factor(y_holdout), yhat_logreg)
