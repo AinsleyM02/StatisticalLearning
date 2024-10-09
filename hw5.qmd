@@ -239,7 +239,7 @@ prob modeling 3.4 for binary classification loss functions
 
 ::: {.callout-note title="Solution"}
 ```{r}
-help(ranger)
+#help(ranger)
 ```
 
 ```{r}
@@ -250,15 +250,15 @@ library(modeldata)
 
 # Fit the random forest model using ranger on the training data
 rf_model <- ranger(y ~ .-y, data = cld_train_s, 
-                     num.trees = 10, mtry = 3, 
-                     importance = 'none')
+                     num.trees = 100, mtry = 3, 
+                     importance = 'impurity')
   
 # Make predictions on the training set also per the instructions-not typical, usually do it on the test set
 y_hat_rforest <- predict(rf_model, cld_train_s[,-9])$predictions
 
   
 
-
+print("The loss function used was the default loss function which was the Gini Impurity and the importance was impurity (also Gini). My non-default parameters were num.trees=100 and mtry=3. ")
 
 ```
 :::
@@ -273,56 +273,24 @@ Also report the AUC (area under the ROC curve) for each model. Again, use the *t
 - Note: you should be weary of being asked to evaluation predictive performance from the same data used to estimate the tuning and model parameters. The next problem will walk you through a more proper way of evaluating predictive performance with resampling. 
 
 ::: {.callout-note title="Solution"}
-```{r}
-# in the classification notes, pg 22 or pg 15, is looking at gamma not predictions, so swap that out
-# can use that new things
-# put sensititivty or specificity on the x axis
-# yardstick with, the default 
 
-# can try using as.vector around the predicts
 
-test_perf =
-tibble(
-truth = Default$y[test.ind] %>% factor(levels=c(1,0)),
-gamma_hat
-)
-
-library(yardstick) # for evaluation functions
-#: The yardstick package requires the categorical outcome be
-# a factor with 1st level the outcome of interest.
-test_perf =
-tibble(
-  truth = as.factor(cld_train_s$y), 
-  yhat_enet_linear, 
-  yhat_probs_logistic,
-  y_hat_rforest 
-)
-#: ROC plots
-ROC =
-test_perf %>%
-yardstick::roc_curve(truth,yhat_enet_linear, 
-  yhat_probs_logistic,
-  y_hat_rforest )
-
-```
 ```{r}
 # Load necessary libraries
-library(yardstick)  # For evaluation functions
+library(yardstick)  # For evaluation functions (roc_curve, roc_auc)
 library(ggplot2)    # For plotting
 library(dplyr)      # For data manipulation
 library(tidyr)      # For pivot_longer
 
-# tell the outcome of interest in the model and the evaluation
-
-# Ensure 'truth' is a binary factor with levels 0 and 1
+# Prepare a data frame with the predictions from each model
 test_perf <- tibble(
-  truth = factor(cld_train_s$y, levels = c(1,0)),  # Ensure this is binary (0 and 1)
+  truth = factor(cld_train_s$y, levels = c(1, 0)),  # Ensure binary factor (0 and 1)
   linear = as.numeric(yhat_enet_linear),       # Continuous predictions from linear model
   logistic = as.numeric(yhat_probs_logistic),  # Probabilities from logistic regression
-  random_forest = as.numeric(y_hat_rforest)    # Probabilities from random forest
+  random_forest = as.numeric(y_hat_rforest)    # Predictions from random forest
 )
 
-# Compute ROC curves for each model separately
+# Compute ROC curves for each model
 roc_linear <- roc_curve(test_perf, truth, linear)
 roc_logistic <- roc_curve(test_perf, truth, logistic)
 roc_rf <- roc_curve(test_perf, truth, random_forest)
@@ -335,6 +303,19 @@ roc_rf <- roc_rf %>% mutate(model = "Random Forest")
 # Combine the ROC data from all models
 roc_combined <- bind_rows(roc_linear, roc_logistic, roc_rf)
 
+# Compute the AUC for each model
+auc_linear <- roc_auc(test_perf, truth, linear)
+auc_logistic <- roc_auc(test_perf, truth, logistic)
+auc_rf <- roc_auc(test_perf, truth, random_forest)
+
+# Print the AUC values
+print(paste("AUC for Linear Model:", auc_linear$.estimate))
+print(paste("AUC for Logistic Model:", auc_logistic$.estimate))
+print(paste("AUC for Random Forest Model:", auc_rf$.estimate))
+```
+
+```{r}
+
 # Plot the combined ROC curves using ggplot
 ggplot(roc_combined, aes(x = 1 - specificity, y = sensitivity, color = model)) +
   geom_path(size = 1.2) +
@@ -342,11 +323,10 @@ ggplot(roc_combined, aes(x = 1 - specificity, y = sensitivity, color = model)) +
   labs(title = "ROC Curves for Linear, Logistic, and Random Forest Models",
        x = "1 - Specificity",
        y = "Sensitivity") +
-  theme_minimal()
-
+  theme_minimal() +
+  scale_color_manual(values = c("Linear" = "blue", "Logistic" = "green", "Random Forest" = "red"))
 
 ```
-
 :::
 
 
@@ -368,20 +348,17 @@ Recreate the ROC curve from the penalized logistic regression (logreg) and rando
 ::: {.callout-note title="Solution"} 
 ```{r}
 # Load necessary libraries
-library(glmnet)         # Penalized logistic regression
-library(ranger)         # Random forest
-library(yardstick)      # For ROC and AUC calculations
-library(ggplot2)        # For plotting
-library(dplyr)          # For data manipulation
-library(purrr)          # For repeated holdouts
+library(glmnet)         
+library(ranger)         
+library(yardstick)      
+library(ggplot2)        
+library(dplyr)          
+library(purrr)          
 
 # Set parameters
 set.seed(123)           # For reproducibility
-alpha <- 0.75           # Elastic net alpha parameter for logistic regression
-mtry_rf <- 2            # Random forest mtry parameter
-num_trees_rf <- 1000    # Number of trees in random forest
 n_iterations <- 25      # Number of iterations
-holdout_size <- 500     # Number of hold-out observations per iteration
+
 
 # Initialize vectors to store AUCs for both models
 auc_logreg <- vector("numeric", n_iterations)
@@ -392,47 +369,58 @@ roc_logreg_list <- list()
 roc_rf_list <- list()
 
 # Repeat the process 25 times
-for (i in 1:n_iterations) {
+for (i in 1:25) {
   
   # Step i: Split data into training and hold-out sets
-  holdout_idx <- sample(1:nrow(cld_train_s), holdout_size)
+  holdout_idx <- sample(1:nrow(cld_train_s), 500) # holdout size=500
   holdout_data <- cld_train_s[holdout_idx, ]
   training_data <- cld_train_s[-holdout_idx, ]
+ #------------------------
+  #Logistic
   
   # Step ii: Logistic regression (penalized logreg with alpha = 0.75)
   X_train <- as.matrix(training_data[, -which(names(training_data) == "y")])
   y_train <- training_data$y
   
   # Perform 10-fold CV to estimate lambda for logistic regression
-  cv_logreg <- cv.glmnet(X_train, y_train, alpha = alpha, family = "binomial", nfolds = 10)
+  cv_logreg <- cv.glmnet(X_train, y_train, alpha = 0.75, family = "binomial", nfolds = 10)
   best_lambda <- cv_logreg$lambda.min  # Best lambda from cross-validation
   
   # Step iii: Predict the holdout observations using penalized logreg
   X_holdout <- as.matrix(holdout_data[, -which(names(holdout_data) == "y")])
   y_holdout <- holdout_data$y
-  yhat_logreg <- predict(cv_logreg, newx = X_holdout, s = best_lambda, type = "response")[,1]
+  yhat_logreg <- predict(cv_logreg, newx = X_holdout, s = best_lambda, type = "response")[,1] # adding this one makes it a vector
+#---------------------------------------------
   
+  #Random Forest
   # Step ii: Random forest (fixed parameters)
   rf_model <- ranger(
     formula = y ~ ., 
     data = training_data, 
-    num.trees = num_trees_rf, 
-    mtry = mtry_rf, 
-    probability = TRUE  # Predict class probabilities
+    num.trees = 1000, 
+    mtry = 2
+    # Predict class probabilities
   )
   
   # Step iii: Predict the holdout observations using random forest
-  yhat_rf <- predict(rf_model, data = holdout_data)$predictions[, 2]  # Prob of class 1
+  yhat_rf <- predict(rf_model, data = holdout_data)$predictions 
+  
+  #-----------------------
+  #AUC
   
   # Step v: Calculate AUC for both models
   auc_logreg[i] <- roc_auc_vec(as.factor(y_holdout), yhat_logreg) # make a vector as well
-  auc_rf[i] <- roc_auc_vec(as.factor(y_holdout), yhat_rf)
+  auc_rf[i] <- roc_auc_vec(as.factor(y_holdout), yhat_rf) # make a vector
   
   # make a dataframe/ tible as above and specify which columns from it to pass in below
+  Preds_tibble<-tibble(
+  truth = factor(y_holdout, levels = c(1,0)),  # Ensure this is binary (0 and 1)
+  logreg_preds = as.numeric(yhat_logreg),
+  rf_preds=as.numeric(yhat_rf))
   
-  # Step vi: Store ROC curve data for plotting
-  roc_logreg_list[[i]] <- roc_curve(as.factor(y_holdout), yhat_logreg)
-  roc_rf_list[[i]] <- roc_curve(as.factor(y_holdout), yhat_rf)
+  # Step vi: Store ROC curve data for plotting, needs df, then columsn specified
+  roc_logreg_list[[i]] <- roc_curve(Preds_tibble, truth, logreg_preds)
+  roc_rf_list[[i]] <- roc_curve(Preds_tibble, truth, rf_preds)
 }
 
 # Calculate mean and standard error for AUCs
@@ -448,6 +436,9 @@ print(paste("Standard Error for LogReg:", se_auc_logreg))
 print(paste("Mean AUC for RF:", mean_auc_rf))
 print(paste("Standard Error for RF:", se_auc_rf))
 
+```
+
+```{r}
 # Step 4: Combine all ROC curve data into one dataframe
 roc_logreg_data <- bind_rows(roc_logreg_list, .id = "iteration") %>% mutate(model = "LogReg")
 roc_rf_data <- bind_rows(roc_rf_list, .id = "iteration") %>% mutate(model = "RandomForest")
@@ -462,6 +453,9 @@ ggplot(roc_logreg_data, aes(x = 1 - specificity, y = sensitivity, group = iterat
        x = "1 - Specificity",
        y = "Sensitivity") +
   theme_minimal()
+```
+
+```{r}
 
 # Plot ROC curves for Random Forest
 ggplot(roc_rf_data, aes(x = 1 - specificity, y = sensitivity, group = iteration)) +
@@ -492,7 +486,44 @@ $$
 where $M$ is the number of test observations, $\hat{p}_i$ is the prediction for the $i$th test observation, and $y_i \in \{0,1\}$ are the true test set labels. 
 
 ::: {.callout-note title="Solution"}
-Add solution here
+```{r}
+# Fit the random forest model using ranger on the training data
+rf_m <- ranger(y ~ .-y, data = cld_train_s, 
+                     num.trees = 1000, mtry = 5, 
+                     importance = 'impurity', 
+                    replace=T,
+                      probability = T)
+
+
+  
+# Make predictions on the training set also per the instructions-not typical, usually do it on the test set
+preds_rforest <- predict(rf_m, cld_test_s)$predictions
+# this has two columsn: prob of no linkage and prob of linkage
+
+# extract the probability of linkage
+prob_link_col <- preds_rforest[, 1] 
+#prob_link_col
+
+file.remove("McLaughlin_Ainsley_1.csv")
+
+
+```
+
+```{r}
+# send to a csv:
+library(readr)
+
+# Convert probs to a data frame and explicitly name the column as 'p'
+probs_df <- data.frame(p = as.vector(prob_link_col))
+
+# Write to CSV again
+write_csv(probs_df, "McLaughlin_Ainsley_1.csv")
+```
+Click below to get the predictions:
+
+[Download predictions cvs](McLaughlin_Ainsley_1.csv)
+
+
 :::
 
 
@@ -507,6 +538,29 @@ Predict the linkages for the test data (using any model).
 - You will receive credit for a proper submission; the top five scores will receive 2 bonus points. Note: you only will get bonus credit for one of the two contests. 
 
 ::: {.callout-note title="Solution"}
-Add solution here
+```{r}
+# Fit the random forest model using ranger on the training data
+rf_m2 <- ranger(y ~ .-y, data = cld_train_s, 
+                     num.trees = 1000, mtry = 5, 
+                     importance = 'impurity',
+                replace=T, 
+                      classification=T,
+                      probability = F)
+
+
+  
+# Make predictions on the training set also per the instructions-not typical, usually do it on the test set
+preds_rforest2 <- predict(rf_m2, cld_test_s)$predictions
+file.remove("McLaughlin_Ainsley_2.csv")
+```
+
+```{r}
+# Convert probs to a data frame and explicitly name the column as 'p'
+probs_df2 <- data.frame(linkages = as.vector(preds_rforest2))
+
+# Write to CSV again
+write_csv(probs_df2, "McLaughlin_Ainsley_2.csv")
+
+```
 :::
 
